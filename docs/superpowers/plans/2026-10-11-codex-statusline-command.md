@@ -1,0 +1,222 @@
+# codexs: command-backed status line execution plan
+
+> **Status, 2026-10-11:** Task 0 setup/source verification and the ccstatusline baseline are complete. Both local release Codex builds were safety-stopped during final linking because virtual memory fell rapidly, so the Codex build/full TUI baseline and Step 6 review remain incomplete. Do not start Task 0A or Phase 1 until the baseline approach is resolved and the explicit Step 6 STOP clears. Use the checkboxes as the progress ledger.
+
+Read the handoff and reviewed spec first. Binding order: user's working agreement and direct instructions > reviewed spec > handoff > this plan. This plan gives concrete work steps; if an upstream API differs, inspect the source and adapt inside the File Map, then record the change here. For changed scope or paths outside the File Map, re-plan and check in. A checkpoint is a short forward-looking status line with files changed and a suggested commit message. Write one consolidated final report after all authorized work and checks end.
+
+## Global constraints and commands
+
+- The user alone runs state-changing git and gh commands. Do not clone, fetch, switch, branch, stage, commit, merge, rebase, push or change git config. Read-only git may use a **command-scoped** safe.directory value for this exact checkout if sandbox ownership requires it; do not persist that setting.
+- System installs (MSVC, rustup, npm global), global ccstatusline replacement, editing ~/.codex/config.toml, and user visual verification each have explicit STOPs below. The first true ccstatusline command invoked by codexs comes **after Task 0A and its safety tests**. Echo-only Codex smoke is permitted earlier.
+- PowerShell 5.1: call npm.cmd and codex.cmd explicitly because .ps1 shims are blocked by the machine execution policy. Do not change execution policy. Check $LASTEXITCODE immediately after native commands; throw on nonzero. Avoid pipelines that hide native failure. bun.exe may be invoked explicitly where shell resolution is ambiguous.
+- Free-space guard: get raw bytes with [System.IO.DriveInfo] on resolved drive C:. Reject exceptions/unavailable values. Compare bytes with 8 * 1GiB **before** rounding for display. Get-PSDrive C returned null for Free/Used in the preflight tool process and is unsuitable.
+- The release build and **full** TUI tests share CARGO_BUILD_JOBS=6 and CARGO_PROFILE_RELEASE_DEBUG=0. Ensure the source toolchain pin selects Rust 1.95.0 (or use rustup run 1.95.0 explicitly); the current default outside that checkout is stable 1.99.0. Ask the user to close memory-heavy apps before a large build. Record exact test counts and failures.
+- TypeScript dependencies are absent in the current ccstatusline checkout. After setup approval and before the baseline, run a **project-local** frozen Bun install from bun.lock. Do not use bunx to fetch Vitest implicitly. Run the locally installed Vitest binary through Bun, the full suite, and lint.
+- Do not claim a manual TUI observation, build or test passed until it actually did.
+
+## File Map
+
+The Codex checkout is C:\Users\Palan\Documents\computer_programming\Projects\codex. Its new codexs directory is at the **repository root**, beside codex-rs.
+
+| Codex relative path | Action and purpose |
+|---|---|
+| codex-rs/tui/src/status_line_command.rs | New config resolution helpers, payload, Unicode render, runner and runtime ownership. |
+| codex-rs/tui/src/status_line_command_tests.rs | New focused unit tests for the above. |
+| codex-rs/tui/src/chatwidget/status_line_command_glue.rs | New ChatWidget snapshot, lifecycle, timer and event glue. |
+| codex-rs/tui/src/chatwidget/status_line_command_integration_tests.rs | New failing-first integration tests for footer output and lifecycle. |
+| codex-rs/tui/src/lib.rs; codex-rs/tui/src/chatwidget.rs; codex-rs/tui/src/chatwidget/constructor.rs; codex-rs/tui/src/chatwidget/status_surfaces.rs | Module/field initialization and footer entry point. |
+| codex-rs/tui/src/chatwidget/turn_runtime.rs; codex-rs/tui/src/chatwidget/compaction.rs | Launch-local active-turn wall time, baseline token counts, and unique compaction accounting. |
+| codex-rs/tui/src/status/rate_limits.rs; codex-rs/tui/src/status/tests.rs | Raw Unix reset time and affected test fixtures. |
+| codex-rs/tui/src/local_settings.rs; codex-rs/tui/src/app_event.rs; codex-rs/tui/src/app/event_dispatch.rs | Trusted layer resolution and identity-tagged output/tick events. |
+| codex-rs/tui/Cargo.toml; codex-rs/Cargo.lock | Windows containment dependency and lockfile if Cargo changes it. |
+| codex-rs/target/ | Generated local build artifacts only. |
+| codexs/install.ps1; codexs/install.Tests.ps1; codexs/README.md | New staged installer, self-contained PowerShell failure tests and shim/update/rollback guide. |
+
+The ccstatusline checkout is C:\Users\Palan\Documents\computer_programming\Projects\ccstatusline.
+
+| ccstatusline relative path | Action and purpose |
+|---|---|
+| src/utils/codex-input.ts; src/utils/__tests__/codex-input.test.ts | Marker and schema-v1 extras, safe metrics and tests. |
+| src/utils/usage-prefetch.ts; src/utils/__tests__/usage-prefetch.test.ts | Anthropic API guard and tests. |
+| src/ccstatusline.ts; src/__tests__/codex-render.test.ts | Filter unsupported widgets before side effects, Codex precedence, and formatter-level tests. If the existing test layout uses another precise integration-test path, record it in the ledger before writing. |
+| docs/superpowers/handoff/2026-10-11-codexs-handoff.md; docs/superpowers/specs/2026-10-11-codex-statusline-command-design.md; docs/superpowers/plans/2026-10-11-codex-statusline-command.md | Documentation and progress checkboxes, only for this task. |
+| bun.lock; dist/ | Project-local frozen dependency resolution must leave bun.lock unchanged. dist is a generated local patched build for integration, not a source edit to commit. |
+| node_modules/ | Generated project-local dependency directory only. |
+
+External, **separately gated** paths: C:\Users\Palan\.codex\config.toml (STOP before editing); C:\Users\Palan\.config\ccstatusline\codex.json (task-specific config copy); %LOCALAPPDATA%\codexs, codexs.prev and a unique staging sibling (STOP before installation); %USERPROFILE%\.local\bin\codexs.cmd (STOP with installer); a unique %TEMP%\codexs-* directory for isolated smoke/payload capture (validate resolved paths before recursive cleanup). The user's Claude settings.json and global ccstatusline installation are read-only until the global-install STOP. Do not touch any other project or configuration. Do not leave auth.json copies in temp; use existing authentication through a safe environment or have the user perform the interactive check if isolation requires copying credentials.
+
+## Phase 0 — prerequisites and baseline
+
+### Task 0: toolchain, user checkout and both baselines
+
+- [x] **Step 1, read-only preflight:** 26.6 GiB C: available via DriveInfo.AvailableFreeSpace; npm codex.cmd reports codex-cli 0.162.0; cargo/rustc were not found on the restricted process PATH; an elevated check later found existing rustup. The Codex checkout is absent. codex.ps1 is blocked by PowerShell execution policy, while codex.cmd works. That command exited 0 but printed warnings about stale ~/.codex/tmp/arg0 cleanup and PATH aliases (Access denied, os error 5); these are out of this task's scope and are not a build/test result.
+- [x] **Step 2, STOP for setup:** Present these exact system/global commands for approval; do not run them before the STOP clears:
+
+~~~powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621"
+if ($LASTEXITCODE -ne 0) { throw 'MSVC Build Tools install failed' }
+winget install --id Rustlang.Rustup
+if ($LASTEXITCODE -ne 0) { throw 'rustup install failed' }
+npm.cmd install -g @openai/codex@0.162.1
+if ($LASTEXITCODE -ne 0) { throw 'npm Codex install failed' }
+~~~
+
+The **user alone** runs the following separate git setup, if they choose this checkout layout:
+
+~~~powershell
+git clone --depth 1 --branch rust-v0.162.1 https://github.com/openai/codex.git C:\Users\Palan\Documents\computer_programming\Projects\codex
+cd C:\Users\Palan\Documents\computer_programming\Projects\codex
+git switch -c statusline-command
+~~~
+
+Setup substeps:
+- [x] Minimal MSVC compiler and Windows SDK installed and verified.
+- [x] Existing rustup verified; pinned Rust 1.95.0 installed and verified explicitly.
+- [x] npm Codex updated to 0.162.1; matching helper alias and required files verified.
+- [x] User created checkout and statusline-command branch at exact rust-v0.162.1.
+
+Never execute those git commands as the agent. Check each winget command's exit code separately when approved and executed. If the user declines a system change, record the result and finish unaffected work; do not label the baseline complete.
+- [x] **Step 3, verify setup:** In a new terminal, confirm rustc 1.95.0 from codex-rs/rust-toolchain.toml, npm main version 0.162.1 and the exact matching declared Windows helper alias (0.162.1-win32-x64), selected Windows x64 architecture, source workspace version 0.162.1, branch/tag and free bytes. Use npm.cmd and codex.cmd. Inspect exact npm package.json and installed @openai/codex-win32-x64 package.json, rather than trusting PATH version. Stop if architecture or version disagrees.
+- [ ] **Step 4, baseline Codex:** From codex-rs, check raw free bytes against 8 GiB. With release env set, build unmodified codex-cli and run the **unfiltered full codex-tui suite** using cargo test --release -p codex-tui. Record native exit codes, total nonzero test count, failures, duration, target size and remaining disk. If disk falls below the guard, STOP with measured numbers and discuss GitHub Actions. Do not use a status_surface filter as the only baseline.
+- [x] **Step 5, baseline ccstatusline before any source change:** Run bun.exe install --frozen-lockfile in ccstatusline (project-local dependencies only). Run local Vitest for the full suite and bun.exe run lint. Record counts, exits and any baseline failure. Capture the deterministic existing Claude fixture through the **actual** src/ccstatusline.ts formatter with scripts/payload.example.json, a fixed test config, fixed CCSTATUSLINE_WIDTH and fixed environment, with UTF-8 byte-preserving input. Store expected bytes in the relevant test fixture or test assertion under the File Map. The check after changes compares to this fixed expected output, not to a newly captured placeholder.
+- [ ] **Step 6, STOP for baseline review:** Record exact baseline results, build minutes, target size, remaining raw free bytes, full nonzero TUI/Vitest counts, lint result and setup STOP outcome in this ledger. Show these concrete results to the user and wait for the Phase 1 go-ahead. Task 0A may start only after this baseline STOP clears; it is an early safety prerequisite within the approved Phase 1 scope, not a waiver of the gate.
+
+## Safety prerequisite — before any real Codex ccstatusline invocation
+
+### Task 0A: Codex input guard and group C suppression
+
+**Files:** ccstatusline src/utils/codex-input.ts and its tests; src/utils/usage-prefetch.ts and tests; src/ccstatusline.ts and formatter integration tests. This is the minimal Phase 2 safety slice; Task 10 adds metrics later.
+
+- [ ] **Step 1, failing tests:** Add a marker function that identifies an own-property codex marker independent of schema parsing. Cases: valid schema 1, malformed codex object, unknown schema, codex null/non-object and normal Claude payload. Choose and document the exact marker rule; a present codex key of any value triggers protective behavior so malformed input cannot reach Claude services. Parser results may be null but protection stays on.
+- [ ] **Step 2, render boundary:** In renderMultipleLines, derive an effective copy of settings.lines by removing all group C types before computing widget needs, prefetch calls, transcript analysis, skills metrics, account-email renderer, pre-render and layout. Include Claude status, account email, all four extra-usage types, Opus/Sonnet/Fable weekly, remote control, voice, skills, cache timer and dollar-cost widgets. Use the project's actual widget type registry to enumerate every type and assert the list in tests. Original settings stay untouched.
+- [ ] **Step 3, independent guards:** For any Codex marker, skip transcript analysis even if transcript_path is supplied, skip Claude status prefetch, skip skills/credential-backed data, and have prefetchUsageDataIfNeeded return only validated provided rate-limit data without calling fetchUsageData for missing fields. Ensure account email cannot read Claude credentials through its widget path. The guard must be before prefetch, not merely at final widget rendering.
+- [ ] **Step 4, tests and validation:** Mock Anthropic usage/status fetch, credential/account-email reader and transcript reader; request every group C widget and assert no calls, no rendered group C text and group A rate-limit values still render when provided. Repeat with malformed/future-schema markers and a full payload with absent limits. Assert a Claude payload without a marker still renders the fixed baseline fixture and all prior services follow their old behavior. Run focused then full Vitest and lint; after they pass, run bun.exe run build to produce the local patched dist/ formatter required by Task 9. Check the native exit code.
+- [ ] **Gate:** Do not set the Codex command to any real ccstatusline executable or run the real Codex/ccstatusline integration until this task passes. Task 7's initial smoke uses an inert echo command. The integration command later points to the local patched build, not the global ccstatusline.
+
+## Phase 1 — Codex TUI feature
+
+For Tasks 1–8, run release-profile focused tests as needed and the full TUI suite at the integration and installer gates. Use source inspection when an API differs; do not paste obsolete samples from an earlier plan.
+
+### Task 1: trusted config resolution
+
+**Files:** status_line_command.rs/tests.rs, lib.rs, local_settings.rs.
+
+- [ ] Write failing tests for defaults, nonempty command, invalid types, high/low non-project precedence and loaded project-layer rejection. The loaded-project test must prove the project layer was actually in the stack and later produce an execution marker check; an untrusted folder that Codex never loaded is not proof.
+- [ ] Add StatusLineCommandConfig with command, refresh_interval_secs default 10 and timeout_ms default 2000. Resolve only non-project layers in TUI LocalSettings, reusing the existing host-preference layer pattern. Preserve the built-in status_line list. Warn once per session for ignored project settings and parse errors.
+- [ ] Run focused config tests; record exact counts. Checkpoint: config files and suggested user commit message.
+
+### Task 2: payload builder
+
+**Files:** status_line_command.rs/tests.rs.
+
+- [ ] Tests first for full schema 1 payload, absent fresh usage, cached-input split, exact 300/10080 minute mapping, unusual/absent windows, finite bounded percentages, no transcript_path or dollar cost, and safe integer count omission. Verify Codable fields ccstatusline actually reads.
+- [ ] Snapshot inputs from ChatWidget into plain data, then build JSON as a pure function. Include version, mode, model, cwd, thread id/name and raw reset Unix seconds when valid. workspace.project_dir equals cwd. Omit unsupported vim/worktree fields.
+- [ ] Add launch-local token baseline and speed_tokens only when a later valid measurement shares the active-turn-wall-time lifetime. On resume, retain context/thread totals but reset baseline and wall-time to this launch. Counter reset re-baselines speed; omit speed until a later sample. Do not call this duration api_duration_ms.
+- [ ] Run focused tests and document any deliberately omitted source field. Checkpoint: payload files and suggested user commit.
+
+### Task 3: output sanitizing and grapheme truncation
+
+**Files:** status_line_command.rs/tests.rs; tui/Cargo.toml and Cargo.lock only if a needed Unicode grapheme dependency is not already available.
+
+- [ ] Failing tests: CRLF, blank/escape-only first lines, ANSI SGR colors, stripping CSI cursor controls, OSC title/clipboard/hyperlink, invalid UTF-8, styled spans, zero width, CJK, powerline, combining accent, skin-tone emoji, ZWJ family emoji and regional-indicator flag.
+- [ ] Keep safe SGR styles only. Parse the first nonempty visible line, then truncate by whole Unicode grapheme clusters and terminal display width, reserving one column for an ellipsis. Do not split a grapheme or style span. Handle clusters spanning parser spans with an explicit reconstruction rule.
+- [ ] Run focused render tests. Checkpoint: render files and suggested user commit.
+
+### Task 4: contained process runner
+
+**Files:** status_line_command.rs/tests.rs, tui/Cargo.toml, Cargo.lock if changed.
+
+- [ ] Failing Windows tests cover stdin JSON and width, quoted command paths, successful exit/color, missing command, nonzero exit, empty output, stdout cap, stdin write failure, stdout read failure, wait failure where injectable, timeout and cancellation. Spawn a uniquely identifiable child/descendant, capture its PID and assert that exact PID is gone after timeout, normal completion and cancellation. Aggregate node.exe counts are not evidence.
+- [ ] Implement a runner that simultaneously writes stdin and drains capped stdout. Either keep draining beyond the retained 64 KiB until exit or return an explicit OutputCap error and terminate; do not return truncated success or wait while the pipe is full. Pipe errors and cleanup failures have distinct failure kinds. Validate exit success and visible output only after the child exits.
+- [ ] On Windows, JobObject creation/association must succeed before the command proceeds. A missing job is a failure. Never preserve descendants. On every path terminate or close the owned tree and await child reap; cancellation/drop owns cleanup too. If the available helper returns a child with no job, fail safe. Non-Windows either implements a verified process group with group termination/reap or an explicit Unsupported fallback; this plan chooses Unsupported until that implementation exists.
+- [ ] Keep timeout under one outer deadline including I/O and wait, then perform bounded cleanup. Surface cleanup errors to warnings/logs instead of ignoring them. Test no deadlock at the cap and no PID leak. Checkpoint: runner files and suggested user commit.
+
+### Task 5: runtime scheduling and identity
+
+**Files:** status_line_command.rs/tests.rs.
+
+- [ ] Failing tests for first immediate run, 300 ms spacing, dirty-run coalescing, pending-delay cancellation, running-tree cancellation, output generation mismatch, **session/runtime identity** mismatch, config-change invalidation, interval change timer replacement, disable and Drop/shutdown.
+- [ ] Model a runtime identity that changes on new session and any command/config change, plus a monotonically increasing generation for each run. The runtime owns the tick JoinHandle, delayed launch JoinHandle, active runner cancellation/cleanup and last_good line. A delayed task must check current identity/generation again before spawning. Invalidating a runtime aborts timer/delay, cancels and reaps active tree, clears old last_good and warning state as appropriate, then schedules the current config's timer.
+- [ ] Output and tick events carry both identity and generation (ticks may carry the scheduled generation/epoch). Reject mismatched events before touching UI, warnings or dirty state. Match a finish only to its owned active run.
+- [ ] Run focused state tests. Checkpoint: state files and suggested user commit.
+
+### Task 6: raw rate-limit reset time
+
+**Files:** tui/src/status/rate_limits.rs, tui/src/status/tests.rs and affected literals within the File Map.
+
+- [ ] Failing test for preserving Unix reset seconds alongside the existing human-readable string.
+- [ ] Add the raw optional field and update every struct literal the compiler identifies. Do not pipe cargo output through Select-String and mistake filtered text for success; capture exit status first, then inspect diagnostics.
+- [ ] Run focused rate-limit and payload tests. Checkpoint: rate-limit files and suggested user commit.
+
+### Task 7: ChatWidget integration
+
+**Files:** status_line_command_glue.rs, status_line_command_integration_tests.rs, ChatWidget and event files in File Map.
+
+- [ ] **Failing integration tests first:** scaffold the test module and minimal callable glue/event interfaces so the tests compile and fail on behavior before adding the implementation. Cover successful footer replacement and SGR colors, fallback on spawn/exit/empty/cap/pipe errors, last-good retention only on timeout, one warning per kind, dirty-run throttling, periodic ticks, interval/config changes, delayed-run cancellation, stale output/tick from a previous session, shutdown cleanup, and built-in footer unchanged when no command. Use deterministic fake runner/timer seams and a PID-backed containment test where appropriate. Record red failures; a missing symbol alone is not sufficient evidence for this task.
+- [ ] Add identity-tagged StatusLineCommandOutput and StatusLineCommandTick events and dispatch. Initialize the runtime in every ChatWidget constructor/test helper. Attach footer refresh and snapshot acquisition. Use the actual footer width; cap rendering on receipt. On config reload or session reset call runtime invalidation before scheduling new work. Make stale events inert.
+- [ ] Count active-turn **wall time** once per successful live start/completion pair, including tool and approval waits. Running time appears in the snapshot. Replay or failed start adds none. Count each unique live compaction id once; duplicate/replay events add none. Resume resets launch-local clocks and speed baseline. Assert these semantics in tests.
+- [ ] Build and run focused integration tests, then the **full** codex-tui suite and compare exact counts with Task 0. Inspect any changed snapshot; do not accept changed default behavior without cause.
+- [ ] **Echo-only smoke:** with a controlled temporary Codex config and no credential copy where possible, run a literal echo command to verify footer success, failure fallback and one warning. This is **not** a ccstatusline invocation. Remove only the exact validated temp path afterward. User visual confirmation is a STOP; record pass/fail, not an assumed pass. Checkpoint: all Task 7 files and suggested user commit.
+
+### Task 8: staged installer and guide
+
+**Files:** repository-root codexs/install.ps1, codexs/install.Tests.ps1 and codexs/README.md. The test file uses built-in PowerShell assertions and a controlled temporary install root; do not install Pester.
+
+- [ ] In codexs/install.Tests.ps1, write self-contained PowerShell tests for missing/mismatched source, npm main package and Windows x64 optional helper package, staged missing helpers, locked old executable, running helper process, failed copy, failed first/second rename, rollback, old backup retention and shim environment. Use an injectable stage/swap failure seam and a controlled temporary install root; do not install Pester or touch the user's installation. No test may forcibly kill a user's process.
+- [ ] Installer resolves npm.cmd root -g, reads @openai/codex/package.json and @openai/codex-win32-x64/package.json, validates the source/main/binary release version and the helper version against its declared optional-dependency alias (verified 0.162.1-win32-x64, not literal equality with 0.162.1), validates process architecture, and locates the helper package/vendor path from the **installed package layout**. Compare source workspace version and built binary version as well. A PATH codex.cmd version check is supplementary, never sole proof.
+- [ ] Disk check uses DriveInfo raw bytes and rejects unavailable readings. Build release codex-cli and run **full** cargo test --release -p codex-tui before swap. Check each native $LASTEXITCODE immediately. The readme explains setup STOPs and user-only git update steps.
+- [ ] Stage a complete vendor copy in a unique sibling of %LOCALAPPDATA%\codexs; replace only staged bin\codex.exe; validate executable version and required codex-path/codex-resources files. Resolve every recursive-operation path under the intended %LOCALAPPDATA% root, rejecting root/empty/outside paths. Check whether the destination binary or helper process is running and handle locks without forced termination. Use a checked sequence of directory renames (old to backup, stage to destination), not a claimed atomic multi-directory swap. On failure after the first rename, restore old destination and report any rollback failure. A rename success alone does not prove a locked installation is safe to replace. Keep the existing installation usable on preflight/copy failure, do not delete an existing backup at start, and rotate a backup only after later verified success.
+- [ ] Write codexs.cmd using setlocal, clear CODEX_MANAGED_BY_NPM and CODEX_MANAGED_PACKAGE_ROOT, prepend codex-path, invoke bin\codex.exe with all args and return its exit code. Test inherited npm variables are absent to the child.
+- [ ] **STOP before installing** into real %LOCALAPPDATA% and user shim. After approval, run install and verify codexs.cmd --version from a new terminal. Checkpoint: installer/readme and suggested user commit.
+
+### Task 9: prepare user config and end-to-end Windows checklist
+
+**External files are gated by STOP.** Task 0A's safety guard must pass before any actual ccstatusline run. Task 10/11's metrics and full safety gate must pass before the complete checklist.
+
+- [ ] Create codex.json as a task-specific copy of Claude settings.json without changing settings.json. Keep its widget configuration separate; the Codex command string belongs in Codex config and will point to the **local patched build** (for example an explicit node.exe path to this checkout's dist/ccstatusline.js with --config codex.json). Verify quoted spaces and explicit .cmd/.exe resolution.
+- [ ] Test official codex.cmd compatibility with the unknown [tui.status_line_command] section using a temporary config before touching the real config. Record actual parser result.
+- [ ] **STOP before editing ~/.codex/config.toml.** Show exact [tui.status_line_command] lines, their location and the retained built-in fallback list to the user. After authorization and Task 0A safety tests, point the command to the local patched formatter for the first safe Group A smoke. Before Task 0A passes, use an inert echo command or leave it unset.
+- [ ] Prepare checklist fixtures: known good/failing command; a trusted project config whose loaded layer can be proven; a unique file marker the project command would write if wrongly executed; a PID-recording child command; fixed terminal width. Do not execute a project command to create its marker.
+- [ ] **After Task 0A passes,** perform the first actual Codex/ccstatusline Group A smoke with the local patched formatter, then run this checklist: startup line in Windows Terminal; prompt updates; clock ticks after configured interval; resize refits; missing command gives built-in footer plus one warning; project setting is ignored with warning; official codex.cmd accepts the same config; exact descendant PIDs from command runs are gone after refresh and idle soak. Record this Group A result here before starting Task 10.
+- [ ] Project-config case must prove the layer was actually loaded (e.g. an innocuous known project-layer setting affects observed behavior or the loader reports source) and confirm the execution marker is absent. A folder whose project config was never loaded is inconclusive.
+- [ ] **STOP for end-to-end Group A review before Phase 2:** Obtain user visual confirmation, record pass/fail for every checklist item and any inconclusive result, and show the concrete results before starting Task 10. Do not promote inconclusive to pass. If official codex rejects the section, STOP and request a decision between separate codexs config and another reviewed approach.
+
+## Phase 2 — Codex extras and final formatter checks
+
+Task 0A's guard is already in place. Work against the local checkout/build. The user creates any desired branch; the agent never switches it.
+
+### Task 10: schema-v1 extras and metrics
+
+**Files:** src/utils/codex-input.ts and tests; src/ccstatusline.ts; formatter integration tests.
+
+- [ ] Failing tests for schema exactly 1, malformed/unknown schema, negative/fractional/unsafe counts, cached count exceeding input, NaN/infinite/out-of-range percentages, absent limits, resumed session baseline, missing matching speed sample, counter reset, compaction count and thread name. Marker protection remains true even if extras parsing fails.
+- [ ] Parse each optional extras field defensively. Invalid optional fields omit only their derived metric. Map Codex cached input as a subset, keep Codex extras ahead of any transcript-derived value, and never read a Codex transcript_path. For speed, use only speed_tokens deltas and turn_wall_duration_ms from the same launch-local lifetime; no valid pair means no speed. Do not divide full thread totals by launch-local time. Compactions and session name use validated extras.
+- [ ] Run focused parser and formatter tests, full Vitest and lint. Confirm Task 0A's group C suppression and fixed Claude fixture still pass. Checkpoint: files and suggested user commit.
+
+### Task 11: full safeguard and integration gate
+
+**Files:** src/ccstatusline.ts, src/utils/usage-prefetch.ts and relevant tests in File Map.
+
+- [ ] Re-run formatter-level tests with all group C widgets configured, Codex marker malformed and schema unknown, full valid payload with absent limits, and unexpected transcript_path. Mock and assert **zero** Anthropic usage, Claude status, account credential/email and transcript reads. Assert group C widgets are absent; group A values and valid group B metrics render.
+- [ ] Compare fixed UTF-8 Claude fixture bytes from Task 0, with the same width/config/environment. Run full local Vitest and lint with exact counts/exits. Build local dist and verify its version. Do not replace global ccstatusline.
+- [ ] With Task 9's safe Group A smoke already recorded, run the local patched formatter through codexs for Group B widgets. Verify cached/total tokens, session name, compactions and speed (including omitted speed before a matching measurement), plus PID lifecycle and fixed-width output. Record actual visual results at the manual STOP. Checkpoint: tests and suggested user commit.
+
+### Task 12: optional global install, payload replay and final verification
+
+- [ ] **STOP before npm.cmd install -g .** Show that the local build passed the full suite/lint and describe how the global ccstatusline used by Claude would change. Proceed only with explicit approval; otherwise leave local integration working and report global install pending.
+- [ ] Capture one real payload by wrapping the **actual local formatter**: wrapper reads stdin as raw UTF-8 bytes, writes those same bytes to a validated temporary file, forwards them unchanged to the formatter with the same --config and CCSTATUSLINE_WIDTH, and relays formatter stdout unchanged. Do not return a fake captured line. Compare the byte-preserved replay output to the footer's actual line after matching width/config/environment; inspect schema, limits and absence of transcript_path. Clean up only the validated task temp path.
+- [ ] Let the user choose any group B widgets in codex.json and confirm them visually in codexs. Ask the user to verify Claude Code's existing status line visually after optional global install. Record results honestly.
+- [ ] Final report **once**, after all tool calls: changed files in each checkout, full/focused test counts and exits, checklist outcomes, actual STOPs and unresolved work, spec deviations, and suggested commit messages. Do not commit or mutate git.
+
+## Progress ledger
+
+- 2026-10-11: Review corrections authorized and applied to handoff/spec/plan; documentation revision complete. No implementation verification is implied.
+- 2026-10-11: Task 0 Step 1 measured 26.6 GiB available on C: via DriveInfo; codex.cmd 0.162.0; cargo/rustc not found on the restricted PATH; Codex checkout absent. PowerShell's codex.ps1 was blocked, so future commands use .cmd. codex.cmd emitted unrelated arg0 temp cleanup/PATH alias Access denied warnings but exited 0.
+- 2026-10-11: User approved and system setup completed. MSVC Build Tools 2022 installed (cl.exe 14.44.35207, Windows SDK 10.0.22621.0 verified). Existing rustup 1.29.1 was found outside the restricted PATH; winget returned no available upgrade (-1978335189), so the existing manager installed Rust 1.95.0 successfully. Explicit rustup run 1.95.0 verified rustc/cargo 1.95.0; outside the source checkout the active default remains stable 1.99.0. npm main 0.162.1 and its declared helper alias 0.162.1-win32-x64 are installed; required vendor helpers exist; architecture AMD64; C: 18.7 GiB free. npm returned exit 0 with EPERM cleanup warning for the old running codex.exe in .codex-OMBnRgz7; no forced cleanup/process termination was attempted.
+- 2026-10-11: User checkout is clean on `statusline-command` at exact tag `rust-v0.162.1`; `codex-rs/rust-toolchain.toml` pins 1.95.0. Installed the missing pinned `clippy`, `rustfmt`, and `rust-src` components. Workspace version is 0.162.1. npm `@openai/codex` is 0.162.1; its declared nested optional alias is `npm:@openai/codex@0.162.1-win32-x64`, and installed helper package version is 0.162.1-win32-x64 with Windows x64 vendor executables. `codex.cmd --version` reports 0.162.1. Step 2 and Step 3 setup STOPs are cleared.
+- 2026-10-11: `rustup run 1.95.0 cargo fetch --locked`, full `cargo metadata --locked`, and the first targeted locked build all exited 101 before compilation because tagged `Cargo.lock` listed 161 workspace crates at version 0.0.0 while the manifests list 0.162.1. After explicit approval, `cargo update --workspace --offline` changed only 161 local `version = "0.0.0"` lines to `version = "0.162.1"`; a zero-context git diff confirmed zero other lines changed, including external dependencies. No state-changing git command was run.
+- 2026-10-11: Step 4 remains **incomplete**. `rustup run 1.95.0 cargo build --release --locked -p codex-cli --bin codex` with `CARGO_BUILD_JOBS=6`, `CARGO_PROFILE_RELEASE_DEBUG=0`, repository default thin LTO ran 17.81 minutes, reached `codex-cli` final linking, then was manually safety-stopped (shell exit 1, no compiler diagnostic) when virtual free fell rapidly to about 4.0 GiB and physical free to about 0.15 GiB. Log: `codex-rs/target/baseline-codex-cli-build.log`. An explicitly approved retry added `CARGO_PROFILE_RELEASE_LTO=off` and kept `--release`, six jobs and debug 0; it ran 14.81 minutes and was likewise manually stopped (shell exit 1, no compiler diagnostic) near final linking when virtual free fell rapidly to about 4.85 GiB. Log: `codex-rs/target/baseline-codex-cli-build-lto-off.log`. Only the verified owned Cargo process tree was terminated each time. No release `codex.exe` exists; the full `cargo test --release --locked -p codex-tui` was **not run**. Retained generated `codex-rs/target/`: 9,764,771,315 bytes across 20,611 files. Final raw C: free: 15,226,589,184 bytes, above the 8 GiB guard. A new build strategy decision is needed before claiming the Rust baseline.
+- 2026-10-11: Explicit npm-global Bun package executable `C:/Users/Palan/AppData/Roaming/npm/node_modules/bun/bin/bun.exe` is version 1.4.2. `bun.exe install --frozen-lockfile` installed 589 project-local packages in 134.47 seconds, exit 0; `bun.lock` SHA-256 stayed `E8AEC7A98A4ECE849ECB79C973B507824B22B2843D0EFE48ECBFEFF675C74A33`. Bun-hosted local Vitest full run (`bun run ./node_modules/vitest/vitest.mjs run`) exited 1 in 10.04 seconds: 123 failed, 714 passed, 15 skipped (852 tests; 128 failed/45 passed/2 skipped files), largely from Bun ESM namespace mocking. Node-hosted local Vitest full run (`node.exe ./node_modules/vitest/vitest.mjs run`) exited 1 in 39.69 seconds: 187 failed, 2,867 passed, 35 skipped (3,089 tests; 22 failed/151 passed/2 skipped files), including Windows `ERR_UNSUPPORTED_ESM_URL_SCHEME` child probes and Thai Buddhist calendar year `2569` versus expected `2026`. Logs are `node_modules/.cache/codexs-baseline-vitest.log` and `codexs-baseline-vitest-node.log`.
+- 2026-10-11: The repository CI actually runs `bun test`. Initial full `bun test` exited 1 with 3,084 passed/19 skipped/11 failed; nine child-probe failures came from resolving a `.cmd` Bun shim under Node 24. With the existing Bun exe directory prepended to **process-local** PATH, the definitive full `bun test` exited 1 in 50.78 seconds: 3,094 passed, 19 skipped, **1 failed**, 3,114 tests across 175 files. The sole failure is existing Windows `EPERM: operation not permitted, symlink` in `config utilities > saves through a symlinked settings file without replacing the link`. Log: `node_modules/.cache/codexs-baseline-bun-test-pathexec.log`. No existing test/source file was changed to hide the failure. `bun.exe run lint` (typecheck plus ESLint) exited 0 before and after the fixture; latest log: `node_modules/.cache/codexs-baseline-lint-after-fixture.log`.
+- 2026-10-11: A fixed pre-change Claude formatter oracle is in `src/__tests__/codex-render.test.ts`, the only new ccstatusline source file. It loads `scripts/payload.example.json`, drops its nonexistent placeholder `transcript_path`, adds fixed `effort.level=high`, and runs the actual `src/ccstatusline.ts` with an isolated version-4 config, width 160, UTC, no color and no API/clock widgets. The expected 118 raw UTF-8 stdout bytes include model, effort, output style, context, input tokens, version and a custom glyph; SHA-256 is `89A446F1DDF82FD0437FC386214C0F7193D163B9DC5173E89FF1219F715BAC5B`. The original config/input/output evidence is in validated `%TEMP%/codexs-baseline-92fadbc5899e49a1ad69b8786b4b88dc/`. Focused `bun test src/__tests__/codex-render.test.ts` passed 1/1 with 4 assertions, and lint after this addition exited 0. The prior full-suite count is the before-fixture baseline; the new focused test is additional evidence.
+- Next: Step 6 baseline-review STOP is **not cleared** because both local Rust builds were safely interrupted and no full TUI test count exists. Do not start Task 0A, Phase 1, or real ccstatusline-from-codexs integration. Review a lower-memory Rust profile or CI fallback with the user; then complete the Rust baseline and review the measured results before Phase 1. Suggested user commit after review: normalize the 161 workspace lock versions and add the fixed Claude fixture plus progress documentation; the agent has not staged or committed anything.

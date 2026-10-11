@@ -1,0 +1,70 @@
+# Handoff: codexs command-backed footer
+
+Updated 2026-10-11 after the user's review corrections. Read this file, then the approved design spec, then the execution plan. All relative paths below start at C:\Users\Palan\Documents\computer_programming\Projects\ccstatusline unless explicitly marked as the sibling Codex checkout.
+
+| Document | Relative path |
+|---|---|
+| Reviewed design | docs/superpowers/specs/2026-10-11-codex-statusline-command-design.md |
+| Execution and progress ledger | docs/superpowers/plans/2026-10-11-codex-statusline-command.md |
+| This handoff | docs/superpowers/handoff/2026-10-11-codexs-handoff.md |
+
+## Authority and working agreement
+
+The user's AGENTS.md and direct instructions take precedence over the reviewed design, then this handoff, then the execution plan. The user approved correcting these three documents and continuing execution on 2026-10-11. Task 0 Step 1 was authorized and is complete. Continue routine approved steps after each applicable phase gate; this approval does not waive the explicit setup, baseline-review, real-config, installer, end-to-end-review, global-install or visual STOPs. Read-only investigation is free. If scope expands outside the File Map or the approach changes materially, re-plan and check in.
+
+All state-changing git and gh work is the user's. The agent never clones, switches, branches, fetches, rebases, stages, commits, pushes or changes git config unless the user explicitly asks in that message. Read-only git is allowed. A command-scoped safe.directory for the exact repo may be used where sandbox ownership demands it; no persistent config edits.
+
+Stay within the plan File Map. Report problems outside scope; do not fix them. Stop separately before MSVC/rustup/global npm installation, baseline review before Phase 1, real ~/.codex/config.toml editing, real codexs installer swap, end-to-end Group A review before Phase 2, and manual visual verification. Checkpoints are short progress lines and ledger checkbox updates. Write one consolidated report only when the work actually ends. Do not claim a result from an unrun test.
+
+The machine is Windows 11 Home, PowerShell 5.1, 16 GB RAM and roughly 27 GiB free at investigation. The machine previously crashed under memory pressure, so build with CARGO_BUILD_JOBS=6 and ask the user to close heavy apps before large builds. PowerShell's codex.ps1 is blocked by execution policy; codex.cmd works. Use npm.cmd/codex.cmd explicitly and never change execution policy to work around this. Native commands need immediate LASTEXITCODE checks.
+
+## Goal and design decisions
+
+Codex TUI 0.162.1 has only a fixed built-in [tui] status_line list. Build a fork named codexs whose passive footer runs a trusted command with Claude-compatible JSON on stdin and shows its first nonempty output line. The official npm codex remains the fallback. The Codex checkout is C:\Users\Palan\Documents\computer_programming\Projects\codex; codexs/ lives at that repository root beside codex-rs, **not** inside codex-rs. The user alone creates the checkout/branch.
+
+| Decision | Result |
+|---|---|
+| D1 | Modify Codex TUI instead of using a terminal wrapper or separate pane. |
+| D2 | Use a separate codexs command and manually chosen future updates. |
+| D3 | Send Claude-compatible fields plus codex schema 1 extras. Codex-marker protection is independent of extras validity. |
+| D4 | Group A uses Codex fields; group B uses ccstatusline mapping; group C Claude-only widgets are suppressed for Codex. |
+| D5 | Enable the command only from non-project Codex config layers. A loaded project layer setting is ignored and warns. |
+| D6 | Local release build with 6 jobs and an 8 GiB raw-byte free-space guard; GitHub Actions is a fallback. |
+| D7 | Complete ccstatusline safety Task 0A **before any actual ccstatusline process is run from codexs**. Use echo-only smoke first. |
+
+## Verified source findings
+
+Codex source at tag rust-v0.162.1 has the footer path in codex-rs/tui/src/chatwidget/status_surfaces.rs: refresh_status_line_from_selections builds segments and calls set_status_line; bottom_pane receives the line. The existing status-branch lookup shows the tokio-spawn/AppEvent pattern. The TUI local_settings.rs applies host preferences across ConfigLayerStack and excludes ConfigLayerSource::Project for its existing audio preference; reuse that pattern for the new command without changing codex-config/core types. The Codex Tui config has serde flatten and schema-only deny_unknown_fields. Official codex compatibility with the new config section remains unproven until its explicit check.
+
+ChatWidget exposes token_info with total_token_usage, last_token_usage and model_context_window, plus pending token state, current model, effort, mode, thread id/name, cwd, approval/sandbox display and rate limit snapshots keyed by codex. Codex cached_input_tokens is included within input_tokens; subtract cached for the Claude-compatible uncached input field. RateLimitWindowDisplay currently has a human-readable reset string, so add a raw Unix reset field without changing its display behavior.
+
+On Windows, codex_utils_pty::process_group is a no-op. JobObject::spawn_background is the relevant helper, but implementation must verify it returns a real job or fail before running an uncontained command. Its preserve_descendants method must never be used here. The runner must terminate and reap its entire owned tree on normal exit, error, timeout, cancellation and shutdown, and expose cleanup failure. Non-Windows command execution is explicitly unsupported until verified process-group cleanup exists. Do not copy the obsolete sample runner from the original plan: it read only to the cap, ignored pipe errors, preserved descendants and did not await cleanup.
+
+Codex rendering can use codex-ansi-escape for SGR style. Truncation needs Unicode grapheme clusters and terminal-column width, including emoji ZWJ sequences, regional flags and combining marks. Counting Rust chars individually would split visible clusters.
+
+The user's global ccstatusline is 2.2.27; this checkout reports 2.2.32. The existing Claude config has model, thinking effort, output style, context bar, session usage, free memory, reset timer, session clock and a custom symbol. A separate ~/.config/ccstatusline/codex.json may be copied from it. The --config option is supported, and CCSTATUSLINE_WIDTH overrides Windows width detection.
+
+ccstatusline's src/ccstatusline.ts renderMultipleLines currently builds settings.lines, then may analyze transcript_path, prefetch usage and Claude service status, read skills data and render widgets. src/utils/usage-prefetch.ts falls back from incomplete supplied limits to fetchUsageData, which would read the user's Claude account. Group C account email has a direct credential-reading path even when usage/status prefetch is suppressed. Thus Task 0A filters group C **before** every side effect and independently guards each service. A malformed/future-schema codex marker still blocks Claude reads. Group B extras may be parsed only when codex.schema is exactly 1 and values are valid.
+
+Speed was incorrectly described in the old draft as full thread token total divided by a launch-local duration called api_duration_ms. The reviewed contract uses post-launch token **deltas from a baseline** divided by post-launch active-turn **wall time**, including tools/approval waits. It omits speeds until a matching baseline and later sample exist. Resume resets those counters; thread total/context fields remain separate. Live unique compaction starts count once; replay/duplicate and failed starts do not count.
+
+## Widget coverage
+
+| Group | Coverage |
+|---|---|
+| A | Git/jj, cwd, custom items, free memory, width, model, effort, version, session id, context, input/output tokens, session/weekly usage, reset timers, session clock and Codex mode as output style. This covers the current line. |
+| B | Cached/total tokens, cache hit/read, session name, unique compaction count and valid launch-local speed. |
+| C | Hide Claude status, account email, extra usage, Opus/Sonnet/Fable weekly, remote control, voice, skills, cache timer, dollar cost and cost rate for all Codex-marked input. |
+
+The payload omits transcript_path, dollar cost and unsupported Claude limits. Its workspace.project_dir equals cwd for now. vim.mode and worktree extras are deferred because ChatWidget's available state does not reliably express them. Resizes refit on the next refresh. Session clock is since this codexs launch, including resumed sessions.
+
+## Current state and next gate
+
+- Investigation and design were completed. On 2026-10-11 the user approved review corrections to this handoff, the spec and the plan.
+- Task 0 Step 1 measured **26.6 GiB** available on C: using DriveInfo.AvailableFreeSpace. Get-PSDrive C Free/Used were null in the preflight tool process and must not be used for the guard. the initial codex.cmd reported 0.162.0; cargo/rustc were not found on the restricted process PATH, and the Codex checkout was absent. The later elevated check found existing rustup. codex.cmd exited 0 but printed unrelated Access denied warnings for stale ~/.codex/tmp/arg0 cleanup/PATH aliases. Do not fix those outside this task.
+- The ccstatusline checkout has bun.lock and scripts/payload.example.json but lacks local Vitest and zod packages; the plan requires project-local bun install --frozen-lockfile before the TypeScript baseline. Do not silently download through bunx.
+- System setup was approved and completed: MSVC x64 compiler 14.44.35207 and Windows SDK 10.0.22621.0 verified; Rust 1.95.0 installed and verified with rustup run; npm Codex 0.162.1 plus its declared Windows helper alias 0.162.1-win32-x64 verified. C: has 18.7 GiB free. The default toolchain outside the pinned source checkout remains stable 1.99.0. npm left its old running binary directory after an EPERM cleanup warning; do not forcibly remove it or kill processes.
+- The user completed clone/branch setup. The checkout is on statusline-command at exact tag rust-v0.162.1; source version, pinned Rust and installed npm packages were verified. Required clippy/rustfmt/rust-src components were installed for Rust 1.95.0.
+- The tagged Cargo.lock records 161 local workspace crates at 0.0.0 although the manifest declares 0.162.1. Locked dependency preparation and the first locked build therefore exited 101 before compilation. The user approved normalizing only those local package versions; the diff was verified to contain exactly 161 version replacements and no external dependency changes. The initial six-job release build was stopped after 17.81 minutes as memory headroom fell rapidly during final linking; it produced no compiler diagnostic failure. Artifacts and logs were retained. The user approved retrying the baseline build and tests with process-local CARGO_PROFILE_RELEASE_LTO=off, keeping --release, six jobs and debug=0. This changes the baseline release profile; it does not alter source profile settings. Both preparation deviations are approved. The LTO-disabled retry was also stopped for memory safety after 14.81 minutes as final-link virtual-memory headroom fell rapidly. No TUI suite ran; both logs and generated artifacts are retained. Another Rust attempt requires a decision on the six-job rule or a CI fallback.
+- Bun 1.4.2 was found at C:/Users/Palan/AppData/Roaming/npm/node_modules/bun/bin/bun.exe; use that explicit path because Bun is absent from PATH. No additional install is needed. The definitive CI-style Bun suite completed: 3,094 passed, 19 skipped, one existing Windows symlink EPERM failure across 3,114 tests. A process-local Bun bin PATH avoided the npm .cmd shim problem. Lint passed, and the new declared Claude byte-parity fixture test passed 1/1 with lint passing again afterward. No Codex feature code, live Codex/formatter integration or manual visual check has completed. After baseline measurements, Task 0 Step 6 remains an explicit review STOP before Task 0A/Phase 1. Task 9's Group A STOP remains before Task 10/Phase 2.
+- The progress ledger and full File Map are in the plan. Keep those checkboxes and actual STOP outcomes current.
