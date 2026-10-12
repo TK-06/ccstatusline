@@ -4,6 +4,7 @@ import type {
 } from '../types/StatusJSON';
 import type { WidgetItem } from '../types/Widget';
 
+import { hasCodexMarker } from './codex-input';
 import type { UsageData } from './usage';
 import { fetchUsageData } from './usage';
 import type { UsageDataField } from './usage-types';
@@ -218,9 +219,43 @@ export function extractUsageDataFromRateLimits(rateLimits: StatusJSON['rate_limi
     return hasAnyUsageDataField(usageData) ? usageData : null;
 }
 
+function extractValidatedCodexRateLimits(rateLimits: StatusJSON['rate_limits']): UsageData | null {
+    if (!rateLimits || typeof rateLimits !== 'object') {
+        return null;
+    }
+
+    const result: UsageData = {};
+    const copyBucket = (
+        bucket: unknown,
+        usageField: 'sessionUsage' | 'weeklyUsage',
+        resetField: 'sessionResetAt' | 'weeklyResetAt'
+    ) => {
+        if (!bucket || typeof bucket !== 'object') {
+            return;
+        }
+        const { used_percentage: usage, resets_at: reset } = bucket as Record<string, unknown>;
+        if (typeof usage === 'number' && Number.isFinite(usage) && usage >= 0 && usage <= 100) {
+            result[usageField] = usage;
+        }
+        if (typeof reset === 'number' && Number.isSafeInteger(reset) && reset >= 0 && reset <= 8_640_000_000_000) {
+            result[resetField] = new Date(reset * 1000).toISOString();
+        }
+    };
+
+    copyBucket(rateLimits.five_hour, 'sessionUsage', 'sessionResetAt');
+    copyBucket(rateLimits.seven_day, 'weeklyUsage', 'weeklyResetAt');
+    return hasAnyUsageDataField(result) ? result : null;
+}
+
 export async function prefetchUsageDataIfNeeded(lines: WidgetItem[][], data?: StatusJSON): Promise<UsageData | null> {
     if (!hasUsageDependentWidgets(lines)) {
         return null;
+    }
+
+    // Protect Codex-marked input even when its extras schema is malformed or unknown.
+    // Missing limits never trigger a Claude credential or network lookup.
+    if (hasCodexMarker(data)) {
+        return extractValidatedCodexRateLimits(data?.rate_limits);
     }
 
     const rateLimitsData = extractUsageDataFromRateLimits(data?.rate_limits);

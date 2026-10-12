@@ -40,6 +40,36 @@ describe('usage prefetch', () => {
     });
 
     it.each([
+        { codex: { schema: 1 } },
+        { codex: { schema: 99 } },
+        { codex: null }
+    ])('does not fetch missing usage for Codex marker %j', async (marker) => {
+        const result = await prefetchUsageDataIfNeeded(
+            [[{ id: 'usage', type: 'session-usage' }]],
+            marker
+        );
+
+        expect(result).toBeNull();
+        expect(mockFetchUsageData.mock.calls).toHaveLength(0);
+    });
+
+    it('keeps only valid supplied limits when Codex fields are incomplete', async () => {
+        const result = await prefetchUsageDataIfNeeded(
+            [[{ id: 'usage', type: 'session-usage' }, { id: 'weekly', type: 'weekly-usage' }]],
+            {
+                codex: { schema: 1 },
+                rate_limits: {
+                    five_hour: { used_percentage: 42, resets_at: 1774020000 },
+                    seven_day: { used_percentage: 150, resets_at: -1 }
+                }
+            }
+        );
+
+        expect(result).toEqual({ sessionUsage: 42, sessionResetAt: epochToIso(1774020000) });
+        expect(mockFetchUsageData.mock.calls).toHaveLength(0);
+    });
+
+    it.each([
         {
             expected: true,
             lines: makeLines(

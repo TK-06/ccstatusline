@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import chalk from 'chalk';
+import { realpathSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { SkillsMetrics } from './types';
 import type { RenderContext } from './types/RenderContext';
@@ -7,6 +10,10 @@ import type { StatusJSON } from './types/StatusJSON';
 import { StatusJSONSchema } from './types/StatusJSON';
 import { getVisibleText } from './utils/ansi';
 import { prefetchClaudeStatusIfNeeded } from './utils/claude-service-status';
+import {
+    hasCodexMarker,
+    isClaudeOnlyWidgetType
+} from './utils/codex-input';
 import { updateColorMap } from './utils/colors';
 import { ZERO_COMPACTION_STATS } from './utils/compaction';
 import {
@@ -20,7 +27,10 @@ import {
     refreshGitReviewCacheFromCli
 } from './utils/git-review-cache';
 import { handleHookInput } from './utils/hook-handler';
-import { getTranscriptAnalysis } from './utils/jsonl';
+import {
+    getTranscriptAnalysis,
+    normalizeThinkingEffort
+} from './utils/jsonl';
 import { advanceGlobalPowerlineThemeIndex } from './utils/powerline-theme-index';
 import {
     buildConfigWarningBadge,
@@ -77,7 +87,7 @@ async function readStdin(): Promise<string | null> {
     }
 }
 
-async function renderMultipleLines(data: StatusJSON) {
+export async function renderMultipleLines(data: StatusJSON) {
     const settings = await loadSettings();
     const configError = getConfigLoadError();
 
@@ -88,7 +98,13 @@ async function renderMultipleLines(data: StatusJSON) {
     updateColorMap();
 
     // Get all lines to render
-    const lines = settings.lines;
+    const codexMarked = hasCodexMarker(data);
+    const hasCodexThinkingEffort = typeof data.effort?.level === 'string'
+        && normalizeThinkingEffort(data.effort.level) !== undefined;
+    const lines = codexMarked
+        ? settings.lines.map(line => line.filter(item => !isClaudeOnlyWidgetType(item.type)
+            && (item.type !== 'thinking-effort' || hasCodexThinkingEffort)))
+        : settings.lines;
 
     // Check if session clock is needed
     const hasSessionClock = lines.some(line => line.some(item => item.type === 'session-clock'));
@@ -109,7 +125,7 @@ async function renderMultipleLines(data: StatusJSON) {
         }
     }
 
-    const transcriptAnalysisPromise = data.transcript_path
+    const transcriptAnalysisPromise = !codexMarked && data.transcript_path
         ? getTranscriptAnalysis(data.transcript_path, {
             includeSessionDuration: hasSessionClock && !hasSessionDurationInStatusJson(data),
             includeSpeedMetrics: hasSpeedItems,
@@ -123,7 +139,7 @@ async function renderMultipleLines(data: StatusJSON) {
     const [transcriptAnalysis, usageData, claudeStatusData] = await Promise.all([
         transcriptAnalysisPromise,
         prefetchUsageDataIfNeeded(lines, data),
-        prefetchClaudeStatusIfNeeded(lines)
+        codexMarked ? Promise.resolve(null) : prefetchClaudeStatusIfNeeded(lines)
     ]);
 
     const tokenMetrics = transcriptAnalysis?.tokenMetrics ?? null;
@@ -132,7 +148,7 @@ async function renderMultipleLines(data: StatusJSON) {
     const windowedSpeedMetrics = transcriptAnalysis?.speedMetricsCollection?.windowed ?? null;
 
     let skillsMetrics: SkillsMetrics | null = null;
-    if (data.session_id) {
+    if (!codexMarked && data.session_id) {
         skillsMetrics = getSkillsMetrics(data.session_id);
     }
 
@@ -352,4 +368,24 @@ async function main() {
     }
 }
 
-void main();
+function isCommandEntry(): boolean {
+    if (!process.argv[1]) {
+        return false;
+    }
+
+    // Resolve package-manager symlinks as well as direct source/dist invocations.
+    // An unrelated missing argv path is normal when this module is imported.
+    try {
+        const invokedPath = realpathSync(path.resolve(process.argv[1]));
+        const modulePath = realpathSync(fileURLToPath(import.meta.url));
+        return process.platform === 'win32'
+            ? invokedPath.toLowerCase() === modulePath.toLowerCase()
+            : invokedPath === modulePath;
+    } catch {
+        return false;
+    }
+}
+
+if (isCommandEntry()) {
+    void main();
+}
