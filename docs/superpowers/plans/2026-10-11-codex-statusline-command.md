@@ -1,6 +1,6 @@
 # codexs: command-backed status line execution plan
 
-> **Status, 2026-10-21:** Tasks 0/0A and 1-6 complete. Task 7 focused acceptance is verified at 414daccc6e1924c772ca00bf9d002c4378bba333/run39475293630: 138 passed, zero failed/ignored, Cargo 0, no guard stop. Approved workflow-only main bootstrap 9b67ddf24c9c8642ceca2f263d4a3f23c14b8798 enabled manual dispatch. Integration run39540859135 is in progress on the same feature SHA, with full TUI, baseline and CLI-build Windows jobs running concurrently. Full-suite comparison, executable artifact and echo/manual gates remain pending; Task 7 is incomplete and Phase 1 continues.
+> **Status, 2026-10-21:** Tasks 0/0A and 1-6 complete; focused feature tests remain 138/138 GREEN at 414dacc. Integration run39540859135 attempt 1 built the CLI successfully. Full TUI result: 5734 passed,49 failed,8 ignored,5791 total; baseline:5589 passed,56 failed,8 ignored,5653 total. All 138 added feature cases passed inside the full suite. Forty-eight failures are shared by name; the one full-only socket abort also occurred in the original Task0 baseline. Shared rendering diagnostics still differ, so the full-suite gate remains open. Failed full/baseline jobs are running in attempt2 on unchanged414dacc; build remains successful. Phase1 continues; Task7 echo/manual and Task8 remain pending.
 
 Read the handoff and reviewed spec first. Binding order: user's working agreement and direct instructions > reviewed spec > handoff > this plan. This plan gives concrete work steps; if an upstream API differs, inspect the source and adapt inside the File Map, then record the change here. For changed scope or paths outside the File Map, re-plan and check in. A checkpoint is a short forward-looking status line with files changed and a suggested commit message. Write one consolidated final report after all authorized work and checks end.
 
@@ -639,3 +639,79 @@ Proceed only if the staged list contains that source file alone. Private data, c
 - 2026-10-21 approved integration launch: the user explicitly authorized the prepared commit/push/CI steps. After rechecking main at8c0f7011674145da7e10627769fb221c74fbf7a0, feature at414daccc6e1924c772ca00bf9d002c4378bba333 and workflow absence on main, root created the workflow-only main commit through the repository contents API. Commit9b67ddf24c9c8642ceca2f263d4a3f23c14b8798 (ci: enable manual status line validation) has exactly the expected main parent and adds only .github/workflows/codexs-statusline.yml, with the exact reviewed Git blobfff460341c06c3846eb41d0597ef9f01cf0f5e23. The fork default remains main. Feature source remains414dacc and local source/index remain unchanged; no merge, local branch switch, fetch or source commit was needed.
 - Root dispatched the existing workflow with --ref statusline-command -f scope=integration and verified https://github.com/TK-06/codexs/actions/runs/39540859135 has event workflow_dispatch and exact head414daccc6e1924c772ca00bf9d002c4378bba333. Resolve-plan119028023589 succeeded; full119028063621, build119028063658 and baseline119028063678 were simultaneously in progress on separate Windows runners, with quick119028023876 also running. This confirms the actual three-job expansion; it is not a compiler/test/build result. Full/build target the feature source and baseline checkout remains pinned to1ee2374c675b1aeae8ca76e1c6c75a6a62619f8e. Existing one-job release/LTOoff/debug0/TUItestopt1 settings, native guards, independent artifacts and no-fail-fast comparison remain unchanged.
 - This separate checkpoint publishes only the three mapped progress documents. The recorded pending-approval launch prerequisite is superseded by the explicit current-turn grant and actual main bootstrap/dispatch above. Source workflow and Cargo.lock content are unchanged on the feature branch; no local Rust/Cargo/test/fixture/application execution, snapshot acceptance, sensitive capture, user-config or install action occurred. Existing 59 .snap.new and one .pending-snap remain retained and excluded. Git/GitHub write permission expires at turn end. Next inspect each job's exact source, native exit, all-target counts/failures, guard state and timing artifacts; compare inherited baseline failures by name before identifying feature regressions. The CLI artifact must exist and pass later controlled validation before any demo claim. Task7 full-suite and echo/user-visual checks, Task8 real installation and later config/GroupA STOPs remain open.
+
+- 2026-10-21 integration diagnosis under engineering-debug: https://github.com/TK-06/codexs/actions/runs/39540859135/attempts/1 at414daccc6e1924c772ca00bf9d002c4378bba333 completed/failure because both full test jobs returned Cargo101. Full all-target outcome:5734passed49failed8ignored5791total; baseline at1ee2374c675b1aeae8ca76e1c6c75a6a62619f8e:5589passed56failed8ignored5653total. Both had guard_stop=none, empty wrapper diagnostics and guard.done. All Cargo test targets ran with no-fail-fast: full library5724/49/4 across5777cases, baseline library5579/56/4 across5639cases; both had9passed4ignored in tests/all.rs,1passed manager regression, and zero-case binary/backend targets. Compilation full113m09s, baseline117m45s; library tests373.84s and598.66s respectively. The full inventory is exactly138 cases larger and all138 feature names have explicit ok rows in the full log.
+- CLI build119028063658 succeeded naturally with Cargo0, no guard stop, release compilation158m18s, and uploaded codexs-cli-39540859135-1 (artifact12324924757). The executable has not been downloaded, run, installed or visually verified here. Focused138/138 and the actual CLI build are successful; the unfiltered full suite is not GREEN.
+- Root compared all49 full and56 baseline complete failure blocks:48 shared names,8 baseline-only names and1 full-only name. The latter is luna_reserve_recovery_restores_task_and_pending_turn_after_fresh_backend_read, failing with Windows socket10053 at the existing session_lifecycle_requests.rs helper. The exact same test/error/location already occurs in the original unmodified Task0 jobs1/opt1 baseline log, then passes in its cached retry. Git comparison confirms both this test file and socket helper are unchanged from1ee2374. This is strong pre-existing-flake evidence, not proof that every current failure is harmless. Full failures comprise36 snapshot-related,11 other assertion/geometry failures and2 socket aborts; baseline has38 snapshot-related,13 other assertion/geometry,4 socket aborts and1 deadline failure. No snapshot was accepted or changed.
+- Shared failure names alone are insufficient for regression clearance: limited normalization matched21/48 complete diagnostic bodies;27 still differ. Many differences are source positions, runtime IDs, paths or interleaved harness output, but four owned-transcript rendering cases differ in failure mode or buffer geometry and remain unresolved: fullscreen_composer_remote_images_leave_an_editable_prompt_row; older_page_loading_uses_the_status_row_without_moving_content_or_cursor; owned_transcript_reserves_a_row_above_the_composer; recap_spacing_belongs_to_the_transcript_tail. Root inspected the changed default-footer paths; observation is disabled without command configuration, and the newly added renderer capacity measurement does not change the normal render decisions. This source evidence does not establish runtime equivalence for those four cases. The full-suite checklist remains unchecked; no regression-free/full-suite completion claim is made.
+- Native TUI tests write raw terminal controls concurrently, damaging some individual harness result rows. After stripping CSI,5788/5791 full and5652/5653 baseline rows parse cleanly; exact totals come from all six complete target summaries and native outcome files. All138 feature rows and all105 complete failure blocks are independently present and checked. Comparison data, complete logs, failure inventory and diagnostic-body comparison stay in ignored codex-rs/target/codexs-task7-ci-39540859135. The plan appendix below records every full failure name and the baseline-only names without raw payloads, runtime session IDs or private fixture paths.
+- Under the current task's explicit permission to fix/retry and publish, root reran only failed jobs with gh run rerun 39540859135 --failed. Attempt2 is in_progress at unchanged414daccc6e1924c772ca00bf9d002c4378bba333: full119175730340 and baseline119175729962 are running; successful build119175732394 is retained, and plan119175731099/quick119175775604 succeeded. This repeats validation to resolve the socket/rendering uncertainty, not to hide baseline failures; inherited failures may remain red. No production source, tests, snapshots, workflow/profile/guard or dependency changed. The only tracked edits are these three progress docs, published separately under this turn's Git grant, which expires at turn end. No local Rust/Cargo/test/fixture/app execution, sensitive capture, user config or install occurred. Next compare attempt2 outcomes and diagnostics before choosing a scoped source fix or requesting approval for broader baseline/CI-policy work. Do not weaken tests or alter out-of-File-Map upstream tests merely to turn CI green.
+
+### Integration attempt 1 full-suite failure inventory (2026-10-21)
+
+These are actual test names, not an accepted-failure allowlist. Raw failures remain failures; investigate changed diagnostics before clearing the gate.
+
+| Full-suite failed test | Primary observed category |
+|---|---|
+| app::composer_hints::tests::usage_notice_preserves_composer_geometry_on_recovery | assertion/other |
+| app::daemon_menu::tests::daemon_menu_is_read_only_and_confirmation_can_cancel_or_handoff | snapshot |
+| app::owned_transcript::empty_state_animation_tests::empty_state_animation_preserves_header_cursor_and_footer | snapshot |
+| app::owned_transcript::tests::fullscreen_composer_remote_images_leave_an_editable_prompt_row | assertion/other |
+| app::owned_transcript::tests::older_page_loading_uses_the_status_row_without_moving_content_or_cursor | assertion/other |
+| app::owned_transcript::tests::owned_transcript_reserves_a_row_above_the_composer | assertion/other |
+| app::owned_transcript::tests::recap_spacing_belongs_to_the_transcript_tail | assertion/other |
+| app::tests::active_reconnect::reconnect_allows_slow_hydration_but_bounds_a_stalled_server | snapshot |
+| app::tests::app_server_thread_replacement_clears_previous_transcript_before_replay | snapshot |
+| app::tests::backend_banner_fallback_tests::backend_banner_fallback_updates_task_settings_and_keeps_notice | socket10053 |
+| app::tests::background_exit_tests::exit_interrupts_before_requesting_shutdown | assertion/other |
+| app::tests::luna_reserve_recovery_tests::luna_reserve_recovery_restores_task_and_pending_turn_after_fresh_backend_read | socket10053 |
+| app::tests::realtime_requests::buffered_voice_items_reconcile_captions_after_thread_switch | snapshot |
+| app::tests::realtime_requests::completed_voice_caption_survives_repeated_thread_replacement | snapshot |
+| app::tests::realtime_requests::replay_reconciles_only_matching_voice_captions_one_for_one | snapshot |
+| app::tests::realtime_requests::switching_threads_keeps_the_source_voice_partial_only_on_reattach | snapshot |
+| app::tests::safety_buffering::agents_overview_acknowledges_inactive_steer_before_interrupt | snapshot |
+| app::tests::session_lifecycle_requests::changing_directory_preserves_project_trust_permissions_history_and_hooks | assertion/other |
+| app::tests::startup_frame_tests::owned_startup_hides_tip_in_transcript | snapshot |
+| app::turn_tips::tests::turn_tip_placements_and_completion_barrier | assertion/other |
+| bottom_pane::chat_composer::reconnect::tests::unavailable_thread_dispatches_recovery_and_local_commands | assertion/other |
+| bottom_pane::chat_composer::vim_search::tests::empty_vim_normal_slash_opens_commands | snapshot |
+| history_cell::tests::pnpm_update_available_history_cell_snapshot | snapshot |
+| history_cell::tests::standalone_unix_update_available_history_cell_snapshot | snapshot |
+| history_cell::tests::standalone_windows_update_available_history_cell_snapshot | snapshot |
+| managed_worktree_tools::tests::creation_attaches_to_original_task_and_survives_service_restart | assertion/other |
+| startup_draft::layout::tests::owned_startup_keeps_the_live_bottom_geometry | snapshot |
+| status::tests::status_snapshot_cached_limits_hide_credits_without_flag | snapshot |
+| status::tests::status_snapshot_includes_credits_and_limits | snapshot |
+| status::tests::status_snapshot_includes_enterprise_monthly_credit_limit | snapshot |
+| status::tests::status_snapshot_includes_forked_from | snapshot |
+| status::tests::status_snapshot_includes_monthly_limit | snapshot |
+| status::tests::status_snapshot_includes_reasoning_details | snapshot |
+| status::tests::status_snapshot_shows_active_user_defined_profile | snapshot |
+| status::tests::status_snapshot_shows_auto_review_permissions | snapshot |
+| status::tests::status_snapshot_shows_chatgpt_plan_without_email | snapshot |
+| status::tests::status_snapshot_shows_missing_limits_message | snapshot |
+| status::tests::status_snapshot_shows_refreshing_limits_notice | snapshot |
+| status::tests::status_snapshot_shows_stale_limits_message | snapshot |
+| status::tests::status_snapshot_shows_unavailable_limits_message | snapshot |
+| status::tests::status_snapshot_uses_default_reasoning_when_config_empty | snapshot |
+| status::tests::status_snapshot_uses_generic_limit_labels_for_unsupported_windows | snapshot |
+| status::tests::status_snapshot_wraps_halfwidth_kana_in_narrow_terminal | snapshot |
+| status::tests::status_snapshot_wraps_in_narrow_terminal | snapshot |
+| status::tests::status_uses_server_provider_id_and_auth_requirement | snapshot |
+| status::tests::transcript_overlay_remeasures_status_after_rate_limit_refresh | snapshot |
+| update_prompt::tests::long_update_command_keeps_selected_skip_visible_in_a_short_viewport | snapshot |
+| update_prompt::tests::update_prompt_snapshot | snapshot |
+| worktree_startup::tests::refreshed_bundle_rechecks_source_during_config_reload | assertion/other |
+
+Baseline-only failures in the same controlled run:
+
+- app::agents_overview::tests::worktrees_overview_grouping_requires_feature
+- app::owned_transcript::input_tests::empty_enter_returns_to_latest_with_contextual_hints
+- app::owned_transcript::tests::fullscreen_composer_scrolls_without_moving_caret_or_transcript
+- app::tests::backend_banner_fallback_tests::backend_banner_fallback_uses_current_task_and_accepted_generation
+- app::tests::luna_reserve_recovery_tests::luna_reserve_recovery_does_not_override_manual_choice_or_account_change
+- app::tests::luna_reserve_recovery_tests::luna_reserve_recovery_survives_task_reconstruction
+- app::tests::session_lifecycle_requests::dynamic_tool_requests_ignore_other_namespaces_and_dispatch_tui_namespace
+- app::tests::session_lifecycle_requests::startup_defaults_tests::fresh_startup_falls_back_only_for_unsupported_config_read
+
+The full-only test is app::tests::luna_reserve_recovery_tests::luna_reserve_recovery_restores_task_and_pending_turn_after_fresh_backend_read. Its current and original Task0 failure both report: An established connection was aborted by the software in your host machine. (os error 10053).
