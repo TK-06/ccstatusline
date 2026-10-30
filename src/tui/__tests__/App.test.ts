@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
     afterEach,
     beforeEach,
@@ -55,6 +56,91 @@ function getMenuValues(
     return buildMainMenuItems(isClaudeInstalled, hasChanges, installation)
         .map(item => item === '-' ? '-' : item.value);
 }
+
+describe('Codex editor isolation', () => {
+    let sandbox: AppSandbox;
+
+    beforeEach(() => { sandbox = setUpAppSandbox(); });
+    afterEach(() => { sandbox.restore(); });
+
+    it('uses the existing editor without Claude startup probes or installation menus', async () => {
+        const status = vi.spyOn(claudeStatus, 'loadClaudeStatusLineState').mockResolvedValue({ existingStatusLine: null, refreshInterval: null });
+        const installed = vi.spyOn(claudeSettings, 'isInstalled').mockResolvedValue(false);
+        const update = vi.spyOn(updateChecker, 'checkForUpdates');
+        const rendered = renderApp(true);
+        try {
+            await waitFor(() => { expect(rendered.getFrame()).toContain('Main Menu'); });
+            expect(rendered.getFrame()).toContain('codexs-statusline | v1.0.0');
+            expect(rendered.getFrame()).toContain('Codex');
+            expect(rendered.getFrame()).toContain('first nonempty');
+            expect(rendered.getFrame()).toContain('Edit Lines');
+            expect(rendered.getFrame()).toContain('Edit Colors');
+            expect(rendered.getFrame()).not.toContain('Install to Claude Code');
+            expect(rendered.getFrame()).not.toContain('Configure Status Line');
+            expect(status).not.toHaveBeenCalled();
+            expect(installed).not.toHaveBeenCalled();
+            expect(claudeSettings.isClaudeCodeVersionAtLeast).not.toHaveBeenCalled();
+            expect(claudeSettings.getPackageCommandAvailability).not.toHaveBeenCalled();
+            expect(update).not.toHaveBeenCalled();
+        } finally { rendered.cleanup(); }
+    });
+
+    it('preserves the ordinary formatter title and version', async () => {
+        vi.spyOn(claudeStatus, 'loadClaudeStatusLineState').mockResolvedValue({ existingStatusLine: null, refreshInterval: null });
+        vi.spyOn(claudeSettings, 'isInstalled').mockResolvedValue(false);
+        const rendered = renderApp();
+        try {
+            await waitFor(() => { expect(rendered.getFrame()).toContain('Main Menu'); });
+            expect(rendered.getFrame()).toContain(`CCStatusline Configuration | v${getPackageVersion()}`);
+            expect(rendered.getFrame()).not.toContain('codexs-statusline');
+            expect(rendered.getOutput()).not.toContain('\x1b]0;');
+        } finally { rendered.cleanup(); }
+    });
+
+    it('sets the interactive Codex tab title once across editor updates', async () => {
+        const rendered = renderApp(true);
+        try {
+            await waitFor(() => { expect(rendered.getFrame()).toContain('Main Menu'); });
+            expect(rendered.getOutput()).toContain('\x1b]0;codexs-statusline\x07');
+            await pressKey(rendered, KEYS.ctrlS, 'Configuration saved');
+            expect(rendered.getOutput().split('\x1b]0;codexs-statusline\x07')).toHaveLength(2);
+        } finally { rendered.cleanup(); }
+    });
+
+    it('does not write a Codex tab title to redirected output', async () => {
+        const rendered = renderApp(true, false);
+        try {
+            await waitFor(() => { expect(rendered.getFrame()).toContain('Main Menu'); });
+            expect(rendered.getOutput()).not.toContain('\x1b]0;');
+        } finally { rendered.cleanup(); }
+    });
+
+    it('saves only the separate file and preserves imported metadata without global command probes', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            lines: [[{ id: 'synthetic', type: 'model', metadata: { future: 'keep' } }], [{ id: 'extra', type: 'custom-text', customText: 'retained' }]],
+            installation: { method: 'pinned', installedVersion: '0.0.1' }
+        };
+        fs.writeFileSync(sandbox.settingsPath, JSON.stringify(settings));
+        vi.spyOn(claudeStatus, 'loadClaudeStatusLineState').mockResolvedValue({ existingStatusLine: null, refreshInterval: null });
+        vi.spyOn(claudeSettings, 'isInstalled').mockResolvedValue(false);
+        const commandProbe = vi.spyOn(globalPackageManager, 'inspectActiveGlobalCommand');
+        const install = vi.spyOn(claudeSettings, 'installStatusLine').mockResolvedValue(undefined);
+        const refresh = vi.spyOn(claudeSettings, 'setRefreshInterval').mockResolvedValue(undefined);
+        const rendered = renderApp(true);
+        try {
+            await waitFor(() => { expect(rendered.getFrame()).toContain('Main Menu'); });
+            await pressKey(rendered, KEYS.ctrlS, 'Configuration saved');
+            const saved = JSON.parse(fs.readFileSync(sandbox.settingsPath, 'utf8')) as typeof settings;
+            expect(saved.lines).toEqual(settings.lines);
+            expect(saved.installation).toEqual(settings.installation);
+            expect(commandProbe).not.toHaveBeenCalled();
+            expect(install).not.toHaveBeenCalled();
+            expect(refresh).not.toHaveBeenCalled();
+            expect(fs.existsSync(path.join(path.dirname(sandbox.settingsPath), 'claude', 'settings.json'))).toBe(false);
+        } finally { rendered.cleanup(); }
+    });
+});
 
 describe('App confirm navigation helpers', () => {
     it('defaults confirmation cancel navigation to the main menu', () => {

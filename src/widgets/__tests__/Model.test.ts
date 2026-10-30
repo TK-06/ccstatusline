@@ -19,6 +19,11 @@ function makeContext(overrides: Partial<RenderContext> = {}): RenderContext {
 }
 
 describe('ModelWidget', () => {
+    it('uses a synthetic Codex name only for Codex-marked previews', () => {
+        const context = makeContext({ isPreview: true, data: { codex: { schema: 1 } } });
+        expect(new ModelWidget().render(RAW_ITEM, context, DEFAULT_SETTINGS)).toBe('Codex preview');
+        expect(new ModelWidget().render(RAW_ITEM, { isPreview: true }, DEFAULT_SETTINGS)).toBe('Claude');
+    });
     describe('render()', () => {
         it('strips parenthetical suffix from display_name', () => {
             const ctx = makeContext({ data: { model: { id: 'claude-opus-4-6[1m]', display_name: 'Opus 4.6 (1M context)' } } });

@@ -11,6 +11,10 @@ import type {
 import { DEFAULT_SETTINGS } from '../../types/Settings';
 import { ContextPercentageUsableWidget } from '../ContextPercentageUsable';
 
+it('omits the Claude usable policy for Codex even with a native capacity', () => {
+    expect(new ContextPercentageUsableWidget().render({ id: 'usable', type: 'context-percentage-usable' }, { data: { codex: { schema: 1 }, context_window: { context_window_size: 1000, current_usage: 500 } } }, DEFAULT_SETTINGS)).toBeNull();
+});
+
 function render(modelId: string | undefined, contextLength: number, rawValue = false, inverse = false) {
     const widget = new ContextPercentageUsableWidget();
     const context: RenderContext = {

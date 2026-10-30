@@ -5,6 +5,7 @@ import type {
     WidgetEditorDisplay,
     WidgetItem
 } from '../types/Widget';
+import { hasCodexMarker } from '../utils/codex-input';
 
 import { formatRawOrLabeledValue } from './shared/raw-or-labeled';
 
@@ -22,7 +23,7 @@ export class ModelWidget implements Widget {
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         if (context.isPreview) {
-            return formatRawOrLabeledValue(item, this.getLabelPrefix(), 'Claude');
+            return formatRawOrLabeledValue(item, this.getLabelPrefix(), hasCodexMarker(context.data) ? 'Codex preview' : 'Claude');
         }
 
         const model = context.data?.model;

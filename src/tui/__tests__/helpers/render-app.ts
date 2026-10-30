@@ -89,16 +89,17 @@ export function setUpAppSandbox(): AppSandbox {
     };
 }
 
-export function renderApp() {
+export function renderApp(codex = false, outputIsTTY = true) {
     const stdin = new MockTtyStream();
     const stdout = new MockTtyStream();
+    stdout.isTTY = outputIsTTY;
     const stderr = new MockTtyStream();
     const chunks: string[] = [];
     stdout.on('data', (chunk: Buffer | string) => {
         chunks.push(chunk.toString());
     });
 
-    const instance = render(React.createElement(App), {
+    const instance = render(React.createElement(App, { codex }), {
         stdin: stdin as unknown as NodeJS.ReadStream,
         stdout: stdout as unknown as NodeJS.WriteStream,
         stderr: stderr as unknown as NodeJS.WriteStream,
@@ -111,6 +112,7 @@ export function renderApp() {
         stdin,
         // Debug mode writes whole frames, so the last chunk is the current screen
         getFrame: () => stripAnsi(chunks.at(-1) ?? ''),
+        getOutput: () => chunks.join(''),
         cleanup: () => {
             instance.unmount();
             instance.cleanup();

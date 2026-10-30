@@ -28,6 +28,7 @@ export type MainMenuOption = 'lines'
     | 'exit';
 
 export interface MainMenuProps {
+    codex?: boolean;
     onSelect: (value: MainMenuOption, index: number) => void;
     isClaudeInstalled: boolean;
     hasChanges: boolean;
@@ -82,7 +83,8 @@ function getInstallationMenuItem(
 export function buildMainMenuItems(
     isClaudeInstalled: boolean,
     hasChanges: boolean,
-    installation?: InstallationMetadata
+    installation?: InstallationMetadata,
+    codex = false
 ): MainMenuEntry[] {
     const menuItems: MainMenuEntry[] = [
         {
@@ -174,7 +176,9 @@ export function buildMainMenuItems(
         );
     }
 
-    return menuItems;
+    return codex
+        ? menuItems.filter(item => item === '-' || !['install', 'manageInstallation', 'checkUpdates', 'configureStatusLine'].includes(item.value))
+        : menuItems;
 }
 
 export function getMainMenuSelectionIndex(items: MainMenuEntry[], option: MainMenuOption): number {
@@ -209,6 +213,7 @@ export function getMainMenuInstallSelectionIndex(
 }
 
 export const MainMenu: React.FC<MainMenuProps> = ({
+    codex = false,
     onSelect,
     isClaudeInstalled,
     hasChanges,
@@ -218,11 +223,11 @@ export const MainMenu: React.FC<MainMenuProps> = ({
     installation,
     previewIsTruncated
 }) => {
-    const menuItems = buildMainMenuItems(isClaudeInstalled, hasChanges, installation);
+    const menuItems = buildMainMenuItems(isClaudeInstalled, hasChanges, installation, codex);
 
     // Check if we should show the truncation warning
     const showTruncationWarning
-        = previewIsTruncated && settings?.flexMode === 'full-minus-40';
+        = previewIsTruncated && (codex || settings?.flexMode === 'full-minus-40');
 
     return (
         <Box flexDirection='column'>

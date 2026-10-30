@@ -1,5 +1,9 @@
 import type { RenderContext } from '../types';
 
+import {
+    hasCodexMarker,
+    sanitizeCodexCommonFields
+} from './codex-input';
 import { getContextWindowMetrics } from './context-window';
 import {
     getContextConfig,
@@ -17,18 +21,19 @@ export interface ContextPercentageMetrics {
  * provide context usage.
  */
 export function calculateContextPercentageMetrics(context: Pick<RenderContext, 'data' | 'tokenMetrics'>): ContextPercentageMetrics | null {
-    const contextWindowMetrics = getContextWindowMetrics(context.data);
+    const codex = hasCodexMarker(context.data);
+    const contextWindowMetrics = getContextWindowMetrics(context.data && codex ? sanitizeCodexCommonFields(context.data) : context.data);
     const modelIdentifier = getModelContextIdentifier(context.data?.model);
     const contextConfig = getContextConfig(modelIdentifier, contextWindowMetrics.windowSize);
 
     if (contextWindowMetrics.usedPercentage !== null) {
         return {
             usedPercentage: contextWindowMetrics.usedPercentage,
-            windowSize: contextConfig.maxTokens
+            windowSize: codex ? contextWindowMetrics.windowSize : contextConfig.maxTokens
         };
     }
 
-    if (!context.tokenMetrics) {
+    if (!context.tokenMetrics || codex) {
         return null;
     }
 

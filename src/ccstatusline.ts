@@ -4,6 +4,12 @@ import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+    CODEXS_STATUSLINE_NAME,
+    CODEXS_VERSION,
+    isCodexWidgetSupported,
+    validateCodexEditorArgs
+} from './tui/codex-profile';
 import type { SkillsMetrics } from './types';
 import type { RenderContext } from './types/RenderContext';
 import type { StatusJSON } from './types/StatusJSON';
@@ -12,7 +18,9 @@ import { getVisibleText } from './utils/ansi';
 import { prefetchClaudeStatusIfNeeded } from './utils/claude-service-status';
 import {
     hasCodexMarker,
-    isClaudeOnlyWidgetType
+    isClaudeOnlyWidgetType,
+    parseCodexExtras,
+    sanitizeCodexCommonFields
 } from './utils/codex-input';
 import { updateColorMap } from './utils/colors';
 import { ZERO_COMPACTION_STATS } from './utils/compaction';
@@ -22,6 +30,10 @@ import {
     loadSettings,
     saveSettings
 } from './utils/config';
+import {
+    getContextWindowContextLengthTokens,
+    getContextWindowSize
+} from './utils/context-window';
 import {
     GIT_REVIEW_REFRESH_FLAG,
     refreshGitReviewCacheFromCli
@@ -51,6 +63,7 @@ import {
 } from './utils/terminal';
 import { sanitizeTerminalText } from './utils/terminal-sanitize';
 import { prefetchUsageDataIfNeeded } from './utils/usage-prefetch';
+import { getUsageWindowFromResetAt } from './utils/usage-windows';
 import { ensureWindowsUtf8CodePage } from './utils/windows-code-page';
 
 function hasSessionDurationInStatusJson(data: StatusJSON): boolean {
@@ -88,7 +101,10 @@ async function readStdin(): Promise<string | null> {
 }
 
 export async function renderMultipleLines(data: StatusJSON) {
-    const settings = await loadSettings();
+    const codexMarked = hasCodexMarker(data);
+    const native = parseCodexExtras(data);
+    data = sanitizeCodexCommonFields(data);
+    const settings = await loadSettings({ codex: codexMarked });
     const configError = getConfigLoadError();
 
     // Set global chalk level based on settings
@@ -98,12 +114,26 @@ export async function renderMultipleLines(data: StatusJSON) {
     updateColorMap();
 
     // Get all lines to render
-    const codexMarked = hasCodexMarker(data);
     const hasCodexThinkingEffort = typeof data.effort?.level === 'string'
         && normalizeThinkingEffort(data.effort.level) !== undefined;
-    const lines = codexMarked
+    let lines = codexMarked
         ? settings.lines.map(line => line.filter(item => !isClaudeOnlyWidgetType(item.type)
-            && (item.type !== 'thinking-effort' || hasCodexThinkingEffort)))
+            && isCodexWidgetSupported(item)
+            && (item.type !== 'context-window' || getContextWindowSize(data) !== null)
+            && (item.type !== 'thinking-effort' || hasCodexThinkingEffort)
+            && (item.type !== 'tokens-input' || native?.inputTokens !== undefined || data.context_window?.total_input_tokens !== undefined)
+            && (item.type !== 'tokens-output' || native?.outputTokens !== undefined || data.context_window?.total_output_tokens !== undefined)
+            && (item.type !== 'context-length' || getContextWindowContextLengthTokens(data) !== null)
+            && (item.type !== 'tokens-cached' || native?.cachedTokens !== undefined)
+            && (item.type !== 'tokens-total' || native?.totalTokens !== undefined)
+            && (!['input-speed', 'output-speed', 'total-speed'].includes(item.type) || native?.speed)
+            && (item.type !== 'input-speed' || native?.speed?.inputTokens !== undefined)
+            && (item.type !== 'output-speed' || native?.speed?.outputTokens !== undefined)
+            && (item.type !== 'total-speed' || native?.speed?.totalTokens !== undefined)
+            && (item.type !== 'compaction-counter' || native?.compactions !== undefined)
+            && (!['cache-hit-rate', 'cache-read'].includes(item.type) || (item.metadata?.cacheScopeSession === 'true'
+                ? native?.inputTokens !== undefined && native.cachedTokens !== undefined
+                : data.context_window?.current_usage !== undefined))))
         : settings.lines;
 
     // Check if session clock is needed
@@ -141,10 +171,31 @@ export async function renderMultipleLines(data: StatusJSON) {
         prefetchUsageDataIfNeeded(lines, data),
         codexMarked ? Promise.resolve(null) : prefetchClaudeStatusIfNeeded(lines)
     ]);
+    if (codexMarked && !getUsageWindowFromResetAt(usageData?.sessionResetAt)) {
+        // Both session timers share a Claude fallback/cache that must never
+        // supply a Codex window when the native reset is missing.
+        lines = lines.map(line => line.filter(item => item.type !== 'block-timer' && item.type !== 'reset-timer'));
+    }
 
-    const tokenMetrics = transcriptAnalysis?.tokenMetrics ?? null;
+    const tokenMetrics = codexMarked ? {
+        inputTokens: native?.inputTokens ?? data.context_window?.total_input_tokens ?? 0,
+        outputTokens: native?.outputTokens ?? data.context_window?.total_output_tokens ?? 0,
+        cachedTokens: native?.cachedTokens ?? 0,
+        cacheReadTokens: native?.cachedTokens ?? 0,
+        totalTokens: native?.totalTokens ?? 0,
+        // Thread totals are not the current prompt's context length.
+        contextLength: 0
+    } : transcriptAnalysis?.tokenMetrics ?? null;
     const sessionDuration = transcriptAnalysis?.sessionDuration ?? null;
-    const speedMetrics = transcriptAnalysis?.speedMetricsCollection?.sessionAverage ?? null;
+    // No transcript requests are counted for native samples. Existing speed widgets
+    // use only tokens and duration, never requestCount.
+    const speedMetrics = codexMarked ? (native?.speed ? {
+        inputTokens: native.speed.inputTokens ?? 0,
+        outputTokens: native.speed.outputTokens ?? 0,
+        totalTokens: native.speed.totalTokens ?? 0,
+        totalDurationMs: native.speed.totalDurationMs,
+        requestCount: 0
+    } : null) : transcriptAnalysis?.speedMetricsCollection?.sessionAverage ?? null;
     const windowedSpeedMetrics = transcriptAnalysis?.speedMetricsCollection?.windowed ?? null;
 
     let skillsMetrics: SkillsMetrics | null = null;
@@ -153,7 +204,7 @@ export async function renderMultipleLines(data: StatusJSON) {
     }
 
     const compactionData = hasCompactionWidget
-        ? (transcriptAnalysis?.compactionData ?? ZERO_COMPACTION_STATS)
+        ? (codexMarked ? { ...ZERO_COMPACTION_STATS, count: native?.compactions ?? 0 } : transcriptAnalysis?.compactionData ?? ZERO_COMPACTION_STATS)
         : null;
 
     // Create render context
@@ -166,7 +217,7 @@ export async function renderMultipleLines(data: StatusJSON) {
         claudeStatusData,
         sessionDuration,
         transcriptSessionName: hasSessionNameWidget
-            ? (transcriptAnalysis?.sessionName ?? null)
+            ? (codexMarked ? native?.sessionName ?? null : transcriptAnalysis?.sessionName ?? null)
             : undefined,
         transcriptThinkingEffort: needsTranscriptThinkingEffort
             ? (transcriptAnalysis?.thinkingEffort ?? null)
@@ -242,7 +293,7 @@ export async function renderMultipleLines(data: StatusJSON) {
     }
 
     // Check if there's an update message to display
-    if (settings.updatemessage?.message
+    if (!codexMarked && settings.updatemessage?.message
         && settings.updatemessage.message.trim() !== ''
         && settings.updatemessage.remaining
         && settings.updatemessage.remaining > 0) {
@@ -306,6 +357,10 @@ function handleGitReviewRefresh(): boolean {
 }
 
 async function main() {
+    if (process.argv.includes('--codex') && (process.argv.includes('--version') || process.argv.includes('-V'))) {
+        console.log(`${CODEXS_STATUSLINE_NAME} ${CODEXS_VERSION}`);
+        return;
+    }
     // Detached cache refreshes re-enter this executable without reading stdin
     // or loading user settings. This mode intentionally emits no output.
     if (handleGitReviewRefresh()) {
@@ -316,6 +371,11 @@ async function main() {
     if (process.argv.includes('--version')) {
         console.log(getPackageVersion());
         process.exit(0);
+    }
+
+    const codex = validateCodexEditorArgs(process.argv.slice(2));
+    if (codex && !process.stdin.isTTY) {
+        throw new Error('The Codex editor requires an interactive terminal');
     }
 
     // Parse --config before anything else
@@ -336,7 +396,10 @@ async function main() {
         if (input && input.trim() !== '') {
             try {
                 // Parse and validate JSON in one step
-                const result = StatusJSONSchema.safeParse(JSON.parse(input));
+                const rawData: unknown = JSON.parse(input);
+                const result = StatusJSONSchema.safeParse(hasCodexMarker(rawData)
+                    ? sanitizeCodexCommonFields(rawData as StatusJSON)
+                    : rawData);
                 if (!result.success) {
                     console.error('Invalid status JSON format:', result.error.message);
                     process.exit(1);
@@ -354,17 +417,17 @@ async function main() {
     } else {
         // Interactive mode - run TUI
         // Remove updatemessage before running TUI
-        const settings = await loadSettings();
+        const settings = await loadSettings({ codex });
         if (settings.updatemessage) {
             const { updatemessage, ...newSettings } = settings;
-            await saveSettings(newSettings);
+            await saveSettings(newSettings, { codex });
         }
         // Imported lazily: the TUI pulls in ink/React/yoga-layout, which the
         // status line render path never touches. Claude Code re-runs this
         // binary every couple of seconds, so keeping that graph off the
         // render path is worth the dynamic import here.
         const { runTUI } = await import('./tui');
-        runTUI();
+        runTUI({ codex });
     }
 }
 

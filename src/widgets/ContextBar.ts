@@ -6,6 +6,10 @@ import type {
     WidgetEditorDisplay,
     WidgetItem
 } from '../types/Widget';
+import {
+    hasCodexMarker,
+    sanitizeCodexCommonFields
+} from '../utils/codex-input';
 import { getContextWindowMetrics } from '../utils/context-window';
 import {
     getContextConfig,
@@ -104,16 +108,17 @@ export class ContextBarWidget implements Widget {
             return formatRawOrLabeledValue(item, this.getLabelPrefix(), previewDisplay);
         }
 
-        const contextWindowMetrics = getContextWindowMetrics(context.data);
+        const codex = hasCodexMarker(context.data);
+        const contextWindowMetrics = getContextWindowMetrics(context.data && codex ? sanitizeCodexCommonFields(context.data) : context.data);
 
         let total = contextWindowMetrics.windowSize;
         let used = contextWindowMetrics.contextLengthTokens;
 
-        if (used === null && context.tokenMetrics) {
+        if (used === null && context.tokenMetrics && !codex) {
             used = context.tokenMetrics.contextLength;
         }
 
-        if (total === null && context.tokenMetrics) {
+        if (total === null && context.tokenMetrics && !codex) {
             const modelIdentifier = getModelContextIdentifier(context.data?.model);
             total = getContextConfig(modelIdentifier).maxTokens;
         }

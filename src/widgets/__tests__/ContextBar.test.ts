@@ -15,6 +15,12 @@ import { ContextBarWidget } from '../ContextBar';
 import { ContextLengthWidget } from '../ContextLength';
 import { ContextWindowWidget } from '../ContextWindow';
 
+it('does not invent Codex capacity from cumulative tokens', () => {
+    const context: RenderContext = { data: { codex: { schema: 1 } }, tokenMetrics: { inputTokens: 50, outputTokens: 10, cachedTokens: 0, totalTokens: 60, contextLength: 60 } };
+    expect(new ContextBarWidget().render({ id: 'ctx', type: 'context-bar' }, context, DEFAULT_SETTINGS)).toBeNull();
+    expect(new ContextWindowWidget().render({ id: 'win', type: 'context-window' }, context, DEFAULT_SETTINGS)).toBeNull();
+});
+
 describe('ContextBarWidget', () => {
     beforeEach(() => {
         vi.restoreAllMocks();

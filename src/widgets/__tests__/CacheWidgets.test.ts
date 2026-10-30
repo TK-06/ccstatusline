@@ -31,6 +31,14 @@ async function loadWidgets() {
 }
 
 const turnItem = (type: string, extra: Partial<WidgetItem> = {}): WidgetItem => ({ id: type, type, ...extra });
+
+it('uses the Codex cached subset over input, without inventing cache writes', async () => {
+    const { CacheHitRateWidget } = await loadWidgets();
+    const context: RenderContext = { data: { codex: { schema: 1 }, context_window: { current_usage: { input_tokens: 600, cache_read_input_tokens: 400 } } } };
+    expect(new CacheHitRateWidget().render(turnItem('cache-hit-rate'), context, DEFAULT_SETTINGS)).toBe('Cache Hit: 40.0%');
+    const session: RenderContext = { data: { codex: { schema: 1 } }, tokenMetrics: { inputTokens: 600, outputTokens: 200, cachedTokens: 400, cacheReadTokens: 400, totalTokens: 1200, contextLength: 0 } };
+    expect(new CacheHitRateWidget().render({ id: 'session', type: 'cache-hit-rate', metadata: { cacheScopeSession: 'true' } }, session, DEFAULT_SETTINGS)).toBe('Cache Hit: 40.0%');
+});
 const sessionItem = (type: string, extra: Partial<WidgetItem> = {}): WidgetItem => ({
     id: type,
     type,

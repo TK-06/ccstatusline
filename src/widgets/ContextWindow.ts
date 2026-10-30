@@ -5,6 +5,10 @@ import type {
     WidgetEditorDisplay,
     WidgetItem
 } from '../types/Widget';
+import {
+    hasCodexMarker,
+    sanitizeCodexCommonFields
+} from '../utils/codex-input';
 import { getContextWindowSize } from '../utils/context-window';
 import {
     getContextConfig,
@@ -34,7 +38,12 @@ export class ContextWindowWidget implements Widget {
             return formatRawOrLabeledValue(item, this.getLabelPrefix(), value);
         }
 
-        let total = getContextWindowSize(context.data);
+        const codex = hasCodexMarker(context.data);
+        let total = getContextWindowSize(context.data && codex ? sanitizeCodexCommonFields(context.data) : context.data);
+
+        if (total === null && codex) {
+            return null;
+        }
 
         if (total === null) {
             const modelIdentifier = getModelContextIdentifier(context.data?.model);

@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
-import * as os from 'node:os';
+import fs from 'node:fs';
+import os from 'node:os';
 import * as path from 'node:path';
 
 import {
@@ -47,6 +47,51 @@ export function getConfigPath(): string {
 
 export function isCustomConfigPath(): boolean {
     return settingsPath !== DEFAULT_SETTINGS_PATH;
+}
+
+function assertSeparateCodexConfig(): void {
+    const normalize = (file: string): string => process.platform === 'win32' ? path.resolve(file).toLowerCase() : path.resolve(file);
+    // Resolve the nearest existing ancestor too, so a new file below a junction
+    // has the same protected identity as an existing file. Metadata only.
+    const canonical = (file: string): string => {
+        let ancestor = path.resolve(file);
+        const suffix: string[] = [];
+        for (;;) {
+            try {
+                return path.join(fs.realpathSync(ancestor), ...suffix);
+            } catch {
+                const parent = path.dirname(ancestor);
+                if (parent === ancestor) {
+                    return path.resolve(file);
+                }
+                suffix.unshift(path.basename(ancestor));
+                ancestor = parent;
+            }
+        }
+    };
+    const roots = [path.join(os.homedir(), '.claude')];
+    if (process.env.CLAUDE_CONFIG_DIR) {
+        roots.push(process.env.CLAUDE_CONFIG_DIR);
+    }
+    const files = [
+        DEFAULT_SETTINGS_PATH,
+        path.join(os.homedir(), '.config', 'ccstatusline', 'settings.json'),
+        path.join(os.homedir(), '.claude.json'),
+        ...roots.map(root => path.join(root, '.claude.json'))
+    ];
+    const rootIdentities = roots.flatMap(root => [normalize(root), normalize(canonical(root))]);
+    const fileIdentities = files.flatMap(file => [normalize(file), normalize(canonical(file))]);
+    const blocked = (file: string): boolean => {
+        const normalized = normalize(file);
+        return fileIdentities.includes(normalized)
+            || rootIdentities.some(root => normalized === root || normalized.startsWith(root + path.sep));
+    };
+    if (blocked(settingsPath)) {
+        throw new Error('Codex requires a separate config outside Claude settings');
+    }
+    if (blocked(canonical(settingsPath))) {
+        throw new Error('Codex requires a separate config outside Claude settings');
+    }
 }
 
 interface SettingsPaths {
@@ -152,8 +197,8 @@ function inMemoryDefaults(): Settings {
     return SettingsSchema.parse({});
 }
 
-async function writeDefaultSettings(paths: SettingsPaths): Promise<Settings> {
-    const defaults = inMemoryDefaults();
+async function writeDefaultSettings(paths: SettingsPaths, codex = false): Promise<Settings> {
+    const defaults = { ...inMemoryDefaults(), ...(codex && { flexMode: 'full' as const }) };
     try {
         await writeSettingsJson(defaults, paths);
         console.error(`Default settings written to ${paths.settingsPath}`);
@@ -174,14 +219,34 @@ async function writeDefaultSettings(paths: SettingsPaths): Promise<Settings> {
  * migrated to the current version AND the migrated result validates first. All writes
  * go through writeSettingsJson, which is atomic (temp file + rename).
  */
-export async function loadSettings(): Promise<Settings> {
+function preserveUnknownSettings(raw: unknown, validated: unknown): unknown {
+    if (Array.isArray(validated)) {
+        const rawArray = Array.isArray(raw) ? raw as unknown[] : [];
+        return (validated as unknown[]).map((value, index) => preserveUnknownSettings(rawArray[index], value));
+    }
+    if (validated !== null && typeof validated === 'object') {
+        const source = raw !== null && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+        const known = Object.fromEntries<unknown>(Object.entries(validated).map(([key, value]) => [key, preserveUnknownSettings(source[key], value)]));
+        return { ...source, ...known };
+    }
+    return validated;
+}
+
+function preserveCodexSettings(rawData: unknown, settings: Settings): Settings {
+    return preserveUnknownSettings(rawData, settings) as Settings;
+}
+
+export async function loadSettings(options: { codex?: boolean } = {}): Promise<Settings> {
+    if (options.codex) {
+        assertSeparateCodexConfig();
+    }
     lastLoadError = null;
     const paths = getSettingsPaths();
 
     try {
         // Check if settings file exists
         if (!fs.existsSync(paths.settingsPath))
-            return await writeDefaultSettings(paths);
+            return await writeDefaultSettings(paths, options.codex);
 
         const content = await readFile(paths.settingsPath, 'utf-8');
         let rawData: unknown;
@@ -230,9 +295,10 @@ export async function loadSettings(): Promise<Settings> {
             await writeSettingsJson(rawData, paths);
         }
 
+        const settings = options.codex ? preserveCodexSettings(rawData, result.data) : result.data;
         return {
-            ...result.data,
-            lines: upgradeLegacyWidgetTypes(result.data.lines)
+            ...settings,
+            lines: upgradeLegacyWidgetTypes(settings.lines)
         };
     } catch (error) {
         console.error('Error loading settings, using defaults:', error);
@@ -241,7 +307,10 @@ export async function loadSettings(): Promise<Settings> {
     }
 }
 
-export async function saveSettings(settings: Settings): Promise<void> {
+export async function saveSettings(settings: Settings, options: { codex?: boolean } = {}): Promise<void> {
+    if (options.codex) {
+        assertSeparateCodexConfig();
+    }
     const paths = getSettingsPaths();
 
     // Always include version when saving
@@ -252,6 +321,10 @@ export async function saveSettings(settings: Settings): Promise<void> {
 
     await writeSettingsJson(settingsWithVersion, paths);
 
+    if (options.codex) {
+        return;
+    }
+
     // Sync widget hooks to Claude settings
     try {
         const { syncWidgetHooks } = await import('./hooks');
@@ -260,7 +333,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 }
 
 export type ImportValidationResult
-    = | { status: 'valid'; data: Settings; presentKeys: (keyof Settings)[] }
+    = | { status: 'valid'; data: Settings; presentKeys: string[] }
         | { status: 'invalid'; reason: string };
 
 function expandPath(filePath: string): string {
@@ -277,7 +350,7 @@ export async function exportConfig(settings: Settings, filePath: string): Promis
     await writeFile(expanded, JSON.stringify(exportData, null, 2), 'utf-8');
 }
 
-export async function validateImportFile(filePath: string): Promise<ImportValidationResult> {
+export async function validateImportFile(filePath: string, options: { codex?: boolean } = {}): Promise<ImportValidationResult> {
     const expanded = expandPath(filePath);
     let raw: string;
     try {
@@ -316,9 +389,9 @@ export async function validateImportFile(filePath: string): Promise<ImportValida
     }
 
     const presentKeys = Object.keys(parsed as Record<string, unknown>)
-        .filter((key): key is keyof Settings => key in result.data);
+        .filter(key => options.codex === true || key in result.data);
 
-    return { status: 'valid', data: result.data, presentKeys };
+    return { status: 'valid', data: options.codex ? preserveCodexSettings(parsed, result.data) : result.data, presentKeys };
 }
 
 const IMPORT_EXCLUDED_KEYS = ['installation', 'version', 'updatemessage', 'exportedBy'] as const;
@@ -328,7 +401,8 @@ export function applyImport(
     current: Settings,
     imported: Settings,
     mode: 'replace' | 'merge',
-    presentKeys: readonly (keyof Settings)[] = Object.keys(imported) as (keyof Settings)[]
+    presentKeys: readonly string[] = Object.keys(imported),
+    options: { codex?: boolean } = {}
 ): Settings {
     const mergeKeys = new Set(presentKeys);
     const importedClean = Object.fromEntries(
@@ -338,10 +412,12 @@ export function applyImport(
     ) as Partial<Settings>;
 
     if (mode === 'replace') {
-        return SettingsSchema.parse({
+        const data = {
             ...importedClean,
             installation: current.installation
-        });
+        };
+        const parsed = SettingsSchema.parse(data);
+        return options.codex ? preserveCodexSettings(data, parsed) : parsed;
     }
     return { ...current, ...importedClean };
 }

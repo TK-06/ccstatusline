@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
-import * as os from 'node:os';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
     afterAll,
@@ -25,20 +25,27 @@ import type { ImportValidationResult } from '../config';
 const MOCK_HOME_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ccstatusline-config-test-home-'));
 const ORIGINAL_CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
 
-let loadSettings: () => Promise<Settings>;
-let saveSettings: (settings: Settings) => Promise<void>;
+let loadSettings: (options?: { codex?: boolean }) => Promise<Settings>;
+let saveSettings: (settings: Settings, options?: { codex?: boolean }) => Promise<void>;
 let exportConfig: (settings: Settings, filePath: string) => Promise<void>;
-let validateImportFile: (filePath: string) => Promise<ImportValidationResult>;
+let validateImportFile: (filePath: string, options?: { codex?: boolean }) => Promise<ImportValidationResult>;
 let applyImport: (
     current: Settings,
     imported: Settings,
     mode: 'replace' | 'merge',
-    presentKeys?: readonly (keyof Settings)[]
+    presentKeys?: readonly string[],
+    options?: { codex?: boolean }
 ) => Settings;
 let initConfigPath: (filePath?: string) => void;
 let getConfigLoadError: () => string | null;
 let saveInstallationMetadata: (metadata: InstallationMetadata | undefined) => Promise<void>;
 let consoleErrorSpy: MockInstance<typeof console.error>;
+let homeSpy: MockInstance<typeof os.homedir>;
+let readSpy: MockInstance<typeof fs.promises.readFile>;
+let writeSpy: MockInstance<typeof fs.promises.writeFile>;
+let renameSpy: MockInstance<typeof fs.promises.rename>;
+let migrationSpy: MockInstance;
+const PROTECTED_HOME = path.join(MOCK_HOME_DIR, 'protected-home');
 
 function getSettingsPaths(): { configDir: string; settingsPath: string; backupPath: string } {
     const configDir = path.join(MOCK_HOME_DIR, '.config', 'ccstatusline');
@@ -54,7 +61,182 @@ function getClaudeConfigDir(): string {
 }
 
 describe('config utilities', () => {
+    it('Codex load and imports preserve nested future theme and number-format options', async () => {
+        const { configDir, settingsPath } = getSettingsPaths();
+        fs.mkdirSync(configDir, { recursive: true });
+        const original = {
+            ...DEFAULT_SETTINGS,
+            powerline: { ...DEFAULT_SETTINGS.powerline, futureOption: 7 },
+            numberFormat: { token: { decimals: 2, futureOption: 8 } },
+            lines: [[{ id: 'nested', type: 'model', numberFormat: { decimals: 2, futureOption: 9 } }]]
+        };
+        fs.writeFileSync(settingsPath, JSON.stringify(original));
+        const assertSaved = () => {
+            const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as typeof original;
+            expect(saved.powerline.futureOption).toBe(7);
+            expect(saved.numberFormat.token.futureOption).toBe(8);
+            expect(saved.lines[0]?.[0]?.numberFormat.futureOption).toBe(9);
+        };
+        await saveSettings(await loadSettings({ codex: true }), { codex: true });
+        assertSaved();
+        const importPath = path.join(configDir, 'nested-import.json');
+        fs.writeFileSync(importPath, JSON.stringify(original));
+        const result = await validateImportFile(importPath, { codex: true });
+        if (result.status !== 'valid') {
+            throw new Error(result.reason);
+        }
+        for (const mode of ['replace', 'merge'] as const) {
+            await saveSettings(applyImport(DEFAULT_SETTINGS, result.data, mode, result.presentKeys, { codex: true }), { codex: true });
+            assertSaved();
+        }
+    });
+    it.each([false, true])('Codex rejects default account and root paths with configured override %j', async (configured) => {
+        if (!configured) {
+            delete process.env.CLAUDE_CONFIG_DIR;
+        }
+        const files = [
+            path.join(PROTECTED_HOME, '.claude.json'),
+            path.join(PROTECTED_HOME, '.claude', 'settings.json'),
+            path.join(PROTECTED_HOME, '.config', 'ccstatusline', 'settings.json'),
+            ...(configured ? [path.join(getClaudeConfigDir(), '.claude.json')] : [])
+        ];
+        for (const file of files) {
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            const original = JSON.stringify({ synthetic: 'protected', lines: [] });
+            fs.writeFileSync(file, original);
+            initConfigPath(file);
+            readSpy.mockClear();
+            writeSpy.mockClear();
+            renameSpy.mockClear();
+            migrationSpy.mockClear();
+            await expect(loadSettings({ codex: true })).rejects.toThrow('separate');
+            await expect(saveSettings(DEFAULT_SETTINGS, { codex: true })).rejects.toThrow('separate');
+            expect(readSpy).not.toHaveBeenCalled();
+            expect(writeSpy).not.toHaveBeenCalled();
+            expect(renameSpy).not.toHaveBeenCalled();
+            expect(migrationSpy).not.toHaveBeenCalled();
+            expect(fs.readFileSync(file, 'utf8')).toBe(original);
+        }
+    });
+
+    it('Codex rejects canonical protected aliases and new descendants before content access', async () => {
+        const protectedRoot = path.join(PROTECTED_HOME, '.claude');
+        const defaultFormatter = path.join(PROTECTED_HOME, '.config', 'ccstatusline', 'settings.json');
+        const physicalRoot = path.join(MOCK_HOME_DIR, 'physical-claude');
+        const physicalFormatter = path.join(MOCK_HOME_DIR, 'physical-formatter.json');
+        const physicalAccount = path.join(MOCK_HOME_DIR, 'physical-account.json');
+        const original = JSON.stringify({ synthetic: 'unchanged' });
+        fs.mkdirSync(physicalRoot, { recursive: true });
+        fs.writeFileSync(physicalFormatter, original);
+        fs.writeFileSync(physicalAccount, original);
+        const actualRealpath = fs.realpathSync.native;
+        const metadataSpy = vi.spyOn(fs, 'realpathSync').mockImplementation((file) => {
+            const resolved = path.resolve(String(file));
+            if (resolved === protectedRoot) {
+                return physicalRoot;
+            }
+            if (resolved === defaultFormatter) {
+                return physicalFormatter;
+            }
+            if (resolved === path.join(getClaudeConfigDir(), '.claude.json')) {
+                return physicalAccount;
+            }
+            return actualRealpath(file);
+        });
+        try {
+            for (const file of [physicalFormatter, physicalAccount, path.join(physicalRoot, 'new', 'settings.json'), path.join(protectedRoot, 'new', 'settings.json')]) {
+                initConfigPath(file);
+                readSpy.mockClear();
+                writeSpy.mockClear();
+                renameSpy.mockClear();
+                migrationSpy.mockClear();
+                await expect(loadSettings({ codex: true })).rejects.toThrow('separate');
+                await expect(saveSettings(DEFAULT_SETTINGS, { codex: true })).rejects.toThrow('separate');
+                expect(readSpy).not.toHaveBeenCalled();
+                expect(writeSpy).not.toHaveBeenCalled();
+                expect(renameSpy).not.toHaveBeenCalled();
+                expect(migrationSpy).not.toHaveBeenCalled();
+            }
+            expect(fs.readFileSync(physicalFormatter, 'utf8')).toBe(original);
+            expect(fs.readFileSync(physicalAccount, 'utf8')).toBe(original);
+            expect(fs.readdirSync(physicalRoot)).toEqual([]);
+        } finally {
+            metadataSpy.mockRestore();
+        }
+    });
+
+    it.each(['', 'invalid\0override'])('Codex keeps default protections with invalid override %j', async (override) => {
+        process.env.CLAUDE_CONFIG_DIR = override;
+        initConfigPath(path.join(PROTECTED_HOME, '.claude', 'settings.json'));
+        readSpy.mockClear();
+        writeSpy.mockClear();
+        await expect(loadSettings({ codex: true })).rejects.toThrow('separate');
+        await expect(saveSettings(DEFAULT_SETTINGS, { codex: true })).rejects.toThrow('separate');
+        expect(readSpy).not.toHaveBeenCalled();
+        expect(writeSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects a Claude config path before Codex load or save can change it', async () => {
+        const claudeFile = path.join(getClaudeConfigDir(), 'settings.json');
+        fs.mkdirSync(getClaudeConfigDir(), { recursive: true });
+        const original = JSON.stringify({ untouched: 'synthetic Claude config' });
+        fs.writeFileSync(claudeFile, original);
+        initConfigPath(claudeFile);
+        await expect(loadSettings({ codex: true })).rejects.toThrow('separate');
+        await expect(saveSettings(DEFAULT_SETTINGS, { codex: true })).rejects.toThrow('separate');
+        expect(fs.readFileSync(claudeFile, 'utf8')).toBe(original);
+    });
+    it('Codex import replace and merge retain unknown options and leave Claude untouched', async () => {
+        const { configDir, settingsPath } = getSettingsPaths();
+        fs.mkdirSync(configDir, { recursive: true });
+        const importPath = path.join(configDir, 'import.json');
+        fs.writeFileSync(importPath, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            futureSetting: { retained: true },
+            lines: [[{ id: 'imported', type: 'future-widget', futureOption: 9 }]]
+        }));
+        const result = await validateImportFile(importPath, { codex: true });
+        if (result.status !== 'valid') {
+            throw new Error(result.reason);
+        }
+        for (const mode of ['replace', 'merge'] as const) {
+            const next = applyImport(DEFAULT_SETTINGS, result.data, mode, result.presentKeys, { codex: true });
+            await saveSettings(next, { codex: true });
+            const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { futureSetting: unknown; lines: unknown[][] };
+            expect(saved.futureSetting).toEqual({ retained: true });
+            expect(saved.lines[0]?.[0]).toEqual({ id: 'imported', type: 'future-widget', futureOption: 9 });
+        }
+        expect(fs.existsSync(getClaudeConfigDir())).toBe(false);
+    });
+    it('Codex saves atomically without creating or changing Claude hooks', async () => {
+        const { settingsPath } = getSettingsPaths();
+        await saveSettings(DEFAULT_SETTINGS, { codex: true });
+        const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as Settings;
+        expect(saved.version).toBe(CURRENT_VERSION);
+        expect(fs.existsSync(getClaudeConfigDir())).toBe(false);
+    });
+
+    it('Codex load and save preserve unknown root and widget fields', async () => {
+        const { configDir, settingsPath } = getSettingsPaths();
+        fs.mkdirSync(configDir, { recursive: true });
+        fs.writeFileSync(settingsPath, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            futureSetting: { retained: true },
+            lines: [[{ id: 'future', type: 'future-widget', futureOption: 7, metadata: { future: 'value' } }]]
+        }));
+        const settings = await loadSettings({ codex: true });
+        await saveSettings(settings, { codex: true });
+        const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { futureSetting: unknown; lines: unknown[][] };
+        expect(saved.futureSetting).toEqual({ retained: true });
+        expect(saved.lines[0]?.[0]).toEqual({ id: 'future', type: 'future-widget', futureOption: 7, metadata: { future: 'value' } });
+        expect(fs.existsSync(getClaudeConfigDir())).toBe(false);
+    });
     beforeAll(async () => {
+        homeSpy = vi.spyOn(os, 'homedir').mockReturnValue(PROTECTED_HOME);
+        readSpy = vi.spyOn(fs.promises, 'readFile');
+        writeSpy = vi.spyOn(fs.promises, 'writeFile');
+        renameSpy = vi.spyOn(fs.promises, 'rename');
+        migrationSpy = vi.spyOn(await import('../migrations'), 'migrateConfig');
         const configModule = await import('../config');
         loadSettings = configModule.loadSettings;
         saveSettings = configModule.saveSettings;
@@ -86,6 +268,11 @@ describe('config utilities', () => {
             process.env.CLAUDE_CONFIG_DIR = ORIGINAL_CLAUDE_CONFIG_DIR;
         }
         initConfigPath();
+        homeSpy.mockRestore();
+        readSpy.mockRestore();
+        writeSpy.mockRestore();
+        renameSpy.mockRestore();
+        migrationSpy.mockRestore();
     });
 
     it('writes defaults when settings file does not exist', async () => {

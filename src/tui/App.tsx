@@ -4,7 +4,8 @@ import {
     Text,
     render,
     useApp,
-    useInput
+    useInput,
+    useStdout
 } from 'ink';
 import Gradient from 'ink-gradient';
 import React, {
@@ -75,6 +76,10 @@ import {
 } from '../utils/update-checker';
 
 import { loadClaudeStatusLineState } from './claude-status';
+import {
+    CODEXS_STATUSLINE_NAME,
+    CODEXS_VERSION
+} from './codex-profile';
 import {
     ColorMenu,
     ConfirmDialog,
@@ -431,9 +436,10 @@ export function applyTuiImport(
     current: Settings,
     imported: Settings,
     mode: 'replace' | 'merge',
-    presentKeys: readonly (keyof Settings)[]
+    presentKeys: readonly string[],
+    codex = false
 ): Settings {
-    const nextSettings = applyImport(current, imported, mode, presentKeys);
+    const nextSettings = applyImport(current, imported, mode, presentKeys, { codex });
     chalk.level = nextSettings.colorLevel;
     return nextSettings;
 }
@@ -476,8 +482,11 @@ export function buildInvalidConfigSaveConfirm(
     };
 }
 
-export const App: React.FC = () => {
+export interface AppProps { codex?: boolean }
+
+export const App: React.FC<AppProps> = ({ codex = false }) => {
     const { exit } = useApp();
+    const { stdout } = useStdout();
     const [settings, setSettings] = useState<Settings | null>(null);
     const [originalSettings, setOriginalSettings] = useState<Settings | null>(null);
     const [hasChanges, setHasChanges] = useState(false);
@@ -495,34 +504,44 @@ export const App: React.FC = () => {
     const [flashMessage, setFlashMessage] = useState<FlashMessage | null>(null);
     const [previewIsTruncated, setPreviewIsTruncated] = useState(false);
     const [currentRefreshInterval, setCurrentRefreshInterval] = useState<number | null>(null);
-    const [supportsRefreshInterval] = useState(() => isClaudeCodeVersionAtLeast('2.1.97'));
-    const [commandAvailability] = useState(() => getPackageCommandAvailability());
+    const [supportsRefreshInterval] = useState(() => !codex && isClaudeCodeVersionAtLeast('2.1.97'));
+    const [commandAvailability] = useState(() => codex
+        ? { npm: false, npx: false, bun: false, bunx: false }
+        : getPackageCommandAvailability());
     const [updateCheckerState, setUpdateCheckerState] = useState<UpdateCheckerState>({ status: 'checking' });
     const [flowNotice, setFlowNotice] = useState<FlowNoticeState | null>(null);
     const [globalPackageInstallations, setGlobalPackageInstallations] = useState<GlobalPackageInstallation[]>([]);
     const [updatesReturnScreen, setUpdatesReturnScreen] = useState<'main' | 'manageInstallation'>('main');
     const [versionInstalledThisSession, setVersionInstalledThisSession] = useState<string | null>(null);
-    const [hasLoadedClaudeStatus, setHasLoadedClaudeStatus] = useState(false);
-    const [hasLoadedInstalledState, setHasLoadedInstalledState] = useState(false);
+    const [hasLoadedClaudeStatus, setHasLoadedClaudeStatus] = useState(codex);
+    const [hasLoadedInstalledState, setHasLoadedInstalledState] = useState(codex);
     const [importValidation, setImportValidation] = useState<ImportValidationResult | null>(null);
     const [actionInFlight, setActionInFlight] = useState(false);
     // The ref blocks a second start synchronously, before the busy screen re-renders
     const actionInFlightRef = useRef(false);
 
     useEffect(() => {
-        void loadClaudeStatusLineState()
-            .then((statusLineState) => {
-                setExistingStatusLine(statusLineState.existingStatusLine);
-                setCurrentRefreshInterval(statusLineState.refreshInterval);
-            })
-            .catch(() => {
-                setExistingStatusLine(null);
-                setCurrentRefreshInterval(null);
-            })
-            .finally(() => {
-                setHasLoadedClaudeStatus(true);
-            });
-        void loadSettings().then((loadedSettings) => {
+        if (codex && stdout.isTTY) {
+            stdout.write(`\x1b]0;${CODEXS_STATUSLINE_NAME}\x07`);
+        }
+    }, [codex, stdout]);
+
+    useEffect(() => {
+        if (!codex) {
+            void loadClaudeStatusLineState()
+                .then((statusLineState) => {
+                    setExistingStatusLine(statusLineState.existingStatusLine);
+                    setCurrentRefreshInterval(statusLineState.refreshInterval);
+                })
+                .catch(() => {
+                    setExistingStatusLine(null);
+                    setCurrentRefreshInterval(null);
+                })
+                .finally(() => {
+                    setHasLoadedClaudeStatus(true);
+                });
+        }
+        void loadSettings({ codex }).then((loadedSettings) => {
             // Set global chalk level based on settings (default to 256 colors for compatibility)
             chalk.level = loadedSettings.colorLevel;
             setSettings(loadedSettings);
@@ -532,12 +551,14 @@ export const App: React.FC = () => {
             // reset by any later loadSettings/saveInstallationMetadata call.
             setConfigLoadError(getConfigLoadError());
         });
-        void isInstalled()
-            .then(setIsClaudeInstalled)
-            .catch(() => { setIsClaudeInstalled(false); })
-            .finally(() => {
-                setHasLoadedInstalledState(true);
-            });
+        if (!codex) {
+            void isInstalled()
+                .then(setIsClaudeInstalled)
+                .catch(() => { setIsClaudeInstalled(false); })
+                .finally(() => {
+                    setHasLoadedInstalledState(true);
+                });
+        }
 
         // Check for Powerline fonts on startup (use sync version that doesn't call execSync)
         const fontStatus = checkPowerlineFonts();
@@ -556,7 +577,7 @@ export const App: React.FC = () => {
         return () => {
             process.stdout.off('resize', handleResize);
         };
-    }, []);
+    }, [codex]);
 
     // Check for changes whenever settings update
     useEffect(() => {
@@ -583,7 +604,7 @@ export const App: React.FC = () => {
         // Global save shortcut
         if (key.ctrl && input === 's' && settings && screen !== 'confirm') {
             const installation = getCurrentInstallation(isClaudeInstalled, existingStatusLine, settings);
-            const activeCommand = installation.method === 'pinned' || installation.method === 'self-managed'
+            const activeCommand = !codex && (installation.method === 'pinned' || installation.method === 'self-managed')
                 ? inspectActiveGlobalCommand({ commandAvailability })
                 : null;
             const effectiveInstallation = getPathInferredInstallation(installation, activeCommand);
@@ -600,7 +621,7 @@ export const App: React.FC = () => {
             const performSave = () => {
                 void (async () => {
                     try {
-                        await saveSettings(settings);
+                        await saveSettings(settings, { codex });
                         setOriginalSettings(cloneSettings(settings));
                         setHasChanges(false);
                         // File is valid again after an explicit save → clear the banner + guard.
@@ -740,6 +761,9 @@ export const App: React.FC = () => {
     }, []);
 
     const handleUpdateCheck = useCallback(() => {
+        if (codex) {
+            return;
+        }
         setUpdateCheckerState({ status: 'checking' });
         const installation = settings
             ? getCurrentInstallation(isClaudeInstalled, existingStatusLine, settings)
@@ -758,7 +782,7 @@ export const App: React.FC = () => {
             installationMetadata: effectiveUpdateInstallation,
             commandAvailability
         }).then(setUpdateCheckerState);
-    }, [commandAvailability, existingStatusLine, isClaudeInstalled, settings]);
+    }, [codex, commandAvailability, existingStatusLine, isClaudeInstalled, settings]);
 
     const handleRunUpdateAction = useCallback((action: UpdateAction) => {
         setConfirmDialog({
@@ -834,7 +858,7 @@ export const App: React.FC = () => {
     }, [settings]);
 
     const handleImportFileChosen = useCallback(async (filePath: string) => {
-        const result = await validateImportFile(filePath);
+        const result = await validateImportFile(filePath, { codex });
         if (result.status === 'invalid') {
             setFlowNotice({
                 title: 'Import Failed',
@@ -847,7 +871,7 @@ export const App: React.FC = () => {
             setImportValidation(result);
             setScreen('importPreview');
         }
-    }, []);
+    }, [codex]);
 
     const handleImportApply = useCallback((mode: 'replace' | 'merge') => {
         if (!settings || importValidation?.status !== 'valid') {
@@ -857,14 +881,15 @@ export const App: React.FC = () => {
             settings,
             importValidation.data,
             mode,
-            importValidation.presentKeys
+            importValidation.presentKeys,
+            codex
         );
         setSettings(importedSettings);
         setHasChanges(true);
         setImportValidation(null);
         setFlashMessage({ text: 'Config imported — review and save', color: 'green' });
         setScreen('main');
-    }, [importValidation, settings]);
+    }, [codex, importValidation, settings]);
 
     if (!settings || !hasLoadedClaudeStatus || !hasLoadedInstalledState) {
         return <Text>Loading settings...</Text>;
@@ -872,11 +897,11 @@ export const App: React.FC = () => {
 
     const runningVersion = getPackageVersion();
     const currentInstallation = getCurrentInstallation(isClaudeInstalled, existingStatusLine, settings);
-    const activeGlobalCommand = currentInstallation.method === 'pinned' || currentInstallation.method === 'self-managed'
+    const activeGlobalCommand = !codex && (currentInstallation.method === 'pinned' || currentInstallation.method === 'self-managed')
         ? inspectActiveGlobalCommand({ commandAvailability })
         : null;
     const effectiveInstallation = getPathInferredInstallation(currentInstallation, activeGlobalCommand);
-    const pinnedVersionMismatch = effectiveInstallation.method === 'pinned'
+    const pinnedVersionMismatch = !codex && effectiveInstallation.method === 'pinned'
         && effectiveInstallation.packageManager !== 'unknown'
         ? getPinnedVersionMismatch(
             effectiveInstallation,
@@ -890,7 +915,7 @@ export const App: React.FC = () => {
     // Run one at a time and hold its screen until it settles, so a second Enter
     // can't start it again and ESC can't leave it finishing behind another screen.
     const runActionOnce = (action: () => Promise<void>) => {
-        if (actionInFlightRef.current) {
+        if (codex || actionInFlightRef.current) {
             return;
         }
 
@@ -1028,6 +1053,9 @@ export const App: React.FC = () => {
     };
 
     const handleMainMenuSelect = async (value: MainMenuOption) => {
+        if (codex && ['install', 'manageInstallation', 'checkUpdates', 'configureStatusLine'].includes(value)) {
+            return;
+        }
         switch (value) {
             case 'lines':
                 setScreen('lines');
@@ -1090,7 +1118,7 @@ export const App: React.FC = () => {
             case 'save': {
                 const saveAndExit = async () => {
                     try {
-                        await saveSettings(settings);
+                        await saveSettings(settings, { codex });
                         setOriginalSettings(cloneSettings(settings));
                         setHasChanges(false);
                         exit();
@@ -1176,11 +1204,11 @@ export const App: React.FC = () => {
             <Box marginBottom={1}>
                 <Text bold>
                     <Gradient name='retro'>
-                        CCStatusline Configuration
+                        {codex ? CODEXS_STATUSLINE_NAME : 'CCStatusline Configuration'}
                     </Gradient>
                 </Text>
                 <Text bold>
-                    {` | ${runningVersion && `v${runningVersion}`}`}
+                    {` | ${codex ? `v${CODEXS_VERSION}` : runningVersion && `v${runningVersion}`}`}
                 </Text>
                 {flashMessage && (
                     <Text color={flashMessage.color} bold>
@@ -1194,8 +1222,12 @@ export const App: React.FC = () => {
             {isCustomConfigPath() && (
                 <Text dimColor>{`Config: ${getConfigPath()}`}</Text>
             )}
+            {codex && (
+                <Text dimColor>Codex: example preview; only the first nonempty rendered line appears in the footer.</Text>
+            )}
 
             <StatusLinePreview
+                codex={codex}
                 lines={settings.lines}
                 terminalWidth={terminalWidth}
                 settings={settings}
@@ -1205,6 +1237,7 @@ export const App: React.FC = () => {
             <Box marginTop={1}>
                 {screen === 'main' && (
                     <MainMenu
+                        codex={codex}
                         onSelect={(value, index) => {
                             // Only persist menu selection if not exiting
                             if (value !== 'save' && value !== 'exit') {
@@ -1243,6 +1276,7 @@ export const App: React.FC = () => {
                 )}
                 {screen === 'items' && (
                     <ItemsEditor
+                        codex={codex}
                         widgets={settings.lines[selectedLine] ?? []}
                         onUpdate={(widgets) => { updateLine(selectedLine, widgets); }}
                         onBack={() => {
@@ -1531,8 +1565,8 @@ export const App: React.FC = () => {
     );
 };
 
-export function runTUI() {
+export function runTUI(options: AppProps = {}) {
     // Clear the terminal before starting the TUI
     process.stdout.write('\x1b[2J\x1b[H');
-    render(<App />);
+    render(<App {...options} />);
 }

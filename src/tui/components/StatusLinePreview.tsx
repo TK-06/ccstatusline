@@ -23,8 +23,10 @@ import {
     type RenderResult
 } from '../../utils/renderer';
 import { advanceGlobalSeparatorIndex } from '../../utils/separator-index';
+import { getCodexPreviewLines } from '../codex-profile';
 
 export interface StatusLinePreviewProps {
+    codex?: boolean;
     lines: WidgetItem[][];
     terminalWidth: number;
     settings?: Settings;
@@ -40,12 +42,14 @@ const renderSingleLine = (
     globalPowerlineThemeIndex: number,
     globalPowerlineStartCapIndex: number,
     preRenderedWidgets: PreRenderedWidget[],
-    preCalculatedMaxWidths: number[]
+    preCalculatedMaxWidths: number[],
+    codex: boolean
 ): RenderResult => {
     // Create render context for preview
     const context: RenderContext = {
         terminalWidth,
         isPreview: true,
+        ...(codex && { data: { codex: { schema: 1 } } }),
         minimalist: settings.minimalistMode,
         gitCacheTtlSeconds: settings.gitCacheTtlSeconds,
         customCommandCacheTtlSeconds: settings.customCommandCacheTtlSeconds,
@@ -66,7 +70,7 @@ export function preparePreviewLineForTerminal(line: string, terminalWidth: numbe
     return truncateStyledText(printableLine, availableWidth, { ellipsis: true });
 }
 
-export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, terminalWidth, settings, onTruncationChange }) => {
+export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, terminalWidth, settings, onTruncationChange, codex = false }) => {
     // Render each configured line
     // Pass the full terminal width - the renderer will handle preview adjustments
     const { renderedLines, anyTruncated } = React.useMemo(() => {
@@ -74,9 +78,11 @@ export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, ter
             return { renderedLines: [], anyTruncated: false };
 
         // Always pre-render all widgets once (for efficiency)
-        const preRenderedLines = preRenderAllWidgets(lines, settings, {
+        const previewLines = codex ? getCodexPreviewLines(lines) : lines;
+        const preRenderedLines = preRenderAllWidgets(previewLines, settings, {
             terminalWidth,
             isPreview: true,
+            ...(codex && { data: { codex: { schema: 1 } } }),
             minimalist: settings.minimalistMode,
             gitCacheTtlSeconds: settings.gitCacheTtlSeconds,
             customCommandCacheTtlSeconds: settings.customCommandCacheTtlSeconds
@@ -89,8 +95,8 @@ export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, ter
         const result: string[] = [];
         let truncated = false;
 
-        for (let i = 0; i < lines.length; i++) {
-            const lineItems = lines[i];
+        for (let i = 0; i < previewLines.length; i++) {
+            const lineItems = previewLines[i];
             if (lineItems && lineItems.length > 0) {
                 const preRenderedWidgets = preRenderedLines[i] ?? [];
                 const renderResult = renderSingleLine(
@@ -102,7 +108,8 @@ export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, ter
                     globalPowerlineThemeIndex,
                     globalPowerlineStartCapIndex,
                     preRenderedWidgets,
-                    preCalculatedMaxWidths
+                    preCalculatedMaxWidths,
+                    codex
                 );
                 result.push(renderResult.line);
                 if (renderResult.wasTruncated) {
@@ -120,7 +127,7 @@ export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, ter
         }
 
         return { renderedLines: result, anyTruncated: truncated };
-    }, [lines, terminalWidth, settings]);
+    }, [lines, terminalWidth, settings, codex]);
 
     // Notify parent when truncation status changes
     React.useEffect(() => {

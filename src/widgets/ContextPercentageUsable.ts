@@ -6,6 +6,7 @@ import type {
     WidgetEditorDisplay,
     WidgetItem
 } from '../types/Widget';
+import { hasCodexMarker } from '../utils/codex-input';
 import { getContextWindowMetrics } from '../utils/context-window';
 import {
     getContextConfig,
@@ -55,6 +56,9 @@ export class ContextPercentageUsableWidget implements Widget {
     }
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
+        if (!context.isPreview && hasCodexMarker(context.data)) {
+            return null;
+        }
         const isInverse = isContextInverse(item);
         const sliderMode = getContextSliderMode(item);
         const modelIdentifier = getModelContextIdentifier(context.data?.model);

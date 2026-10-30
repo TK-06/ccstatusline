@@ -1,10 +1,93 @@
 # codexs: command-backed status line execution plan
 
-> **Status, 2026-10-28:** At source5c52665, feature40521024909 passed144/144; cleanup40521068241 passed config366/366 and the release CLI build/version check (codex-cli0.162.1). Full TUI ran5797 cases:5788passed1failed8ignored, with no guard/wrapper failure. The remaining directory-transition fixture expected two checks for an already trusted destination; corrected native trust lookup correctly produces one. A narrow test-only correction now asserts Trusted before both variants and expects one exact original-thread request. The correction is published at4beaeb1. Feature40641163361 and acceptance40641182703 target exact source4beaeb1faff11bdb62613e8acb837f0ec85350a5; full TUI/config/CLI-build verification is running and results are pending. Tasks0/0A and1-6 remain complete; Task7 full acceptance/echo/manual gates remain open and Task8 is unstarted.
+> **Status, 2026-10-30 (phase closeout):** The current-phase code and preparation are complete and reviewed. Interactive Codex editor requests tab title codexs-statusline; multiline is deferred to the next task and saved Line2 remains unchanged. Title tests passed 30/30 after observed RED; combined focused 168/168, persistence 10/10, lint/typecheck/build and compiled version/privacy checks pass. Full Bun remains non-GREEN: 3,177 passed, 19 skipped, 5 failed out of 3,201 across 178 files (four Windows permission fixtures and one unchanged SessionName timeout). Prior usage-fetch timeout did not recur; it was not fixed here. No Git/GitHub write, native/Rust execution, actual installation, user config/PATH change or snapshot acceptance occurred.
 
 Read the handoff and reviewed spec first. Binding order: user's working agreement and direct instructions > reviewed spec > handoff > this plan. This plan gives concrete work steps; if an upstream API differs, inspect the source and adapt inside the File Map, then record the change here. For changed scope or paths outside the File Map, re-plan and check in. A checkpoint is a short forward-looking status line with files changed and a suggested commit message. Write one consolidated final report after all authorized work and checks end.
 
+## Continuation design checkpoint (2026-10-28)
+
+The user approved the continuation design/File Map and explicitly requested implementation with lean-build. Writing-plans produced C1-C4 below, executed inline in this checkout and ledger. The user separately approved src/utils/config.ts and its existing config.test.ts because ordinary saves synchronized Claude hooks. Existing screens, widget controls and atomic persistence are reused; implementation results and remaining gates are recorded below.
+
+Current publication state: source HEAD4beaeb1 and docs HEAD e5ec35c are unchanged, with uncommitted candidate changes in both checkouts. No current-turn Git/GitHub write grant exists. Official Codex remains0.165.0 and the fork remains0.162.1. Native source has no tracked changes; no Rust compilation/test/application execution occurred. Task8 now uses explicit matching package inputs and hosted evidence instead of global npm copying or a local Cargo build.
+
+Fresh read-only native-log verification at exact source4beaeb1faff11bdb62613e8acb837f0ec85350a5:
+
+| Hosted run/scope | Native summary |
+|---|---|
+| [40641163361 feature](https://github.com/TK-06/codexs/actions/runs/40641163361) | native_exit=0 passed=144 failed=0 ignored=0 total=144 guard_stop=none wrapper=empty |
+| [40641182703 full](https://github.com/TK-06/codexs/actions/runs/40641182703) | native_exit=0 passed=5789 failed=0 ignored=8 total=5797 guard_stop=none wrapper=empty |
+| Same acceptance run, config | native_exit=0 passed=366 failed=0 ignored=0 total=366 guard_stop=none wrapper=empty |
+| Same acceptance run, build | native_exit=0 guard_stop=none wrapper=empty; build/version/artifact job concluded success |
+
+Counts are from the real Windows native summaries, excluding the workflow's deliberate synthetic negative self-tests. Both acceptance and each of its plan/quick/full/config/build jobs concluded success. Relative to Task0's full5580passed/65failed/8ignored/5653total, native acceptance now has209 more passing cases, zero failures and the same8 ignored cases; the separately approved cleanup history explains the baseline corrections without snapshot acceptance. Do not add full and feature counts as if they were disjoint tests.
+
+The user visually confirmed the literal/real formatter preview in prior turns and context31k/475k after a reply. The copied full-minus-40 clipping is now reproduced and corrected synthetically; actual post-fix visual/resize acceptance remains open. This does not close fallback/warning count, loaded project-layer rejection, descendant cleanup or idle soak. Task7 combined manual and Task9 GroupA checks remain open; Task8 code preparation is complete but real installation is unperformed.
+
+## Continuation implementation results (2026-10-29)
+
+- Scope/authorization: the user approved the continuation and implementation, plus the two persistence files after discovery that saveSettings always synchronized Claude hooks. Changes remain within that File Map:19 tracked/new paths in ccstatusline (including these three docs) and4 in Codex (workflow plus3 installer/guide files). Both indexes remain unstaged; no Git/GitHub write or new workflow run is performed.
+- Editor: reuse the actual App/MainMenu/ItemsEditor/StatusLinePreview and widget implementations. The catalog explicitly classifies92 existing widget/layout keys:60 available conditional on native/local data,9 pending Task10 mappings,23 unavailable. Keep existing customization, import/export, unsupported/unknown settings and extra lines; show Codex identity, sample-data/one-line notice and capability reasons. The separate explicit config is required before loading Codex editor/render settings; protected Claude paths are rejected, and --codex editor entry requires a terminal.
+- Test-first evidence: profile scaffold5failures; App/model behavior failures; persistence hook synchronization/root-field loss/import/nested-field loss failures; protected path/editor pipe-mode failures;13 isolated marker cases exposed the sandbox reader, invented200k capacity and cached-Claude block fallback before correction. Positive native capacity/reset cases remain covered. The child inventory is now14passed (13 original cases plus1 protected-path case), accounted for by the parent harness. Frozen Claude output bytes/expectations remain unchanged.
+- Final focused results:65passed0failed across CLI/privacy/App/profile/ItemsEditor/StatusLinePreview/Model, plus5passed0failed Codex persistence cases. Lint/typecheck exited0. Local build exited0 and built Node --version is2.2.32; generated dist is not committed. No dependencies were installed or lockfiles changed.
+- Width/privacy: actual copied settings first failed the synthetic width160 reset-timer assertion, reproducing clipping inside memory. Changing only its flexMode to full passes width160 (budget154 versus120) and narrow80 bounds. The actual cmd.exe/formatter command passes3 synthetic render/privacy cases with zero Claude/network attempts. The old original-settings hash E2587F... does not describe current preferences: the original file was already modified at22:42, before the first new product file at23:13, and now hashes6CB2435B57980F11B64452D034C90C029FB3343AB26DBD6F38C24DB0DB59C100. Keep the historical baseline unchanged; a separate fresh proof compares the current file immediately before/after and passes. Do not restore or overwrite user preference changes. The agent changed only the ignored Codex copy, not that original file.
+- Installer:36passed0failed under the actual GitHub-style exit boundary. Tests use temporary owned inputs and a tiny C# console probe, not Rust. They cover malformed numeric evidence (strings/booleans/fractions/unsafe/missing values), source/version/hash/PE architecture/helper mismatch, raw disk guard, unsafe roots/junctions, existing shim ownership, locked/running targets, stage completeness, copy/both-rename/shim/rollback failures, backup retention, absolute input paths and both shims from a space/Unicode unrelated directory. Empty arguments, literal quotes, nested footer quoting and later user -c order are exercised. The runner receives an explicit installer path and resets LASTEXITCODE only after all assertions pass; no expected negative child exit leaks into GitHub success.
+- Workflow: unique YAML keys parse and the semantic diff contains exactly the new isolated installer quick step. Existing matrix/scopes, runner/guards/release settings and Rust commands compare unchanged. PowerShell parses. Native source remains clean at4beaeb1; the existing downloaded artifact reads as Windows x64 through PE metadata without execution. No local Rust compiler/test/actual fixture or Codex application is run.
+- Full local regression remains non-GREEN. First run lacked the real Bun directory on PATH and reported3109passed19skipped14failed;9 child-process failures came from resolving the npm .cmd shim. With bun.exe on PATH, an intermediate run had3120passed19skipped4failed. Final candidate run:3122passed19skipped5failed/3146total, native1. Four failures are symlink EPERM and3 hardcoded/tmp lock EPERM checks; the unchanged width-cache file independently reproduces12passed3failed. The fifth is the previously observed unchanged SessionName large-transcript5000ms timeout (6766ms). A concurrent earlier run also had2 unchanged usage-fetch timeouts; they did not recur in the final run. Do not hide these results, raise deadlines, alter snapshots or claim full GREEN. Evidence logs are under ignored codex-rs/target/codexs-editor-installer-proof, especially bun-full-candidate.log and unchanged-width-cache.log.
+- Fresh whole-change review completed after an interrupted credit-limited turn. No Critical findings. Three Important defects (cached-Claude timer fallback, nested unknown fields and evidence number coercion) were fixed with observed RED-to-GREEN tests. The Important quoting/override acceptance gap is covered by the real shim probes. No re-review or extra unrelated cleanup was performed; the final suite limitations remain explicit.
+- Ruling: use the existing checkout/ledger and ignored target evidence, not a new worktree/skill workspace, under the user's File Map/Git agreement. Ruling: missing native data is omitted before legacy widgets can invent a Claude limit/timer; known native capacity/reset remains renderable. Ruling: the editor flag is interactive-only, while piped Codex rendering uses its marker and separate protected config. These avoid global configuration changes and do not alter ordinary Claude entry behavior.
+- Remaining gates: matching0.162.1 main/platform package inputs and reviewed install evidence have not been prepared; no npm/global download/install was performed. Real %LOCALAPPDATA%/shims/config/PATH writes are unapproved. The checked user PATH lacks the shim directory, and both real shims/install are absent. The built editor can be manually previewed using explicit Node/dist/ignored Codex-config paths; the user must observe it. Finish remaining Task7 pre-install checks, then concrete install/PATH approval and Task9 installed GroupA review before Task10's9 pending mappings. Full new-source hosted CI is unverified and needs a fresh Git/GitHub publication grant.
+- Suggested later user commits: Codex, feat: prepare codexs launchers and staged installer; ccstatusline, feat: reuse ccstatusline editor for Codex. Exclude dist/target, all captures/user configs, actual session identifiers/personal fixture paths and59.snap.new/1.pending-snap.
+
 ## Global constraints and commands
+
+### Approved continuation implementation steps (2026-10-28)
+
+> For agentic workers: execute inline with executing-plans, test-first, using the approved continuation design/File Map in the existing spec. The user explicitly requested implementation; do not add another plan-approval loop. These steps supersede Task8's original local-build/installed-npm-version assumptions. Tasks9-12 retain their manual and later-metrics gates. No Git/GitHub writes are authorized this turn.
+
+**Goal:** prepare ordinary launch and the existing ccstatusline editor for Codex with safe isolated installation and truthful widget coverage.
+
+**Architecture:** a small Codex profile controls capability metadata and editor entry/menu eligibility. Existing React/Ink screens, widget rendering and config persistence remain the implementation. Task8 generates both command shims and stages a matching vendor tree; it uses reviewed hosted build evidence rather than local Rust compilation.
+
+**Tech stack:** existing TypeScript/React/Ink, Node runtime, Bun/Vitest checks and PowerShell5.1 assertions. No added dependencies or Pester installation.
+
+**Review focus:** explicit config required for Codex editor; Claude startup/save/import side effects unreachable; unsupported widgets round-trip unchanged; command paths/arguments and exit codes survive Windows quoting; failed install/rename/rollback preserves usable previous files.
+
+#### C1: Codex editor profile and entry
+
+**Files:** approved src/ccstatusline.ts, src/tui/codex-profile.ts, App/MainMenu/ItemsEditor/StatusLinePreview/Model and their mapped tests/helper.
+
+**Interfaces:** `getCodexWidgetSupport(type: string)` returns availability/reason; `getCodexWidgetCatalog(settings)` retains existing catalog entries and adds support descriptions; `getCodexPreviewLines(lines)` omits unsupported entries without mutation; `runTUI({ codex?: boolean })`, `App({ codex?: boolean })` pass the explicit profile to existing components. CLI `--codex` requires an explicit `--config <file>` before interactive startup. Ordinary invocations are unchanged.
+
+- [x] Write behavioral tests for required explicit config, menu eligibility, complete registry classification, available/pending/unavailable metrics, nonmutating imported widget filtering and synthetic Codex preview.
+- [x] Run focused tests and record assertion RED before implementation. Minimal callable stubs may establish the seam; missing-module errors alone are not the behavioral RED.
+- [x] Implement the profile and explicit entry, then guard App's Claude startup effects, global probes/mismatch checks and keyboard/save/import/install/update routes. Reuse normal screens; pass codex into picker/preview. Show one-line/sample-data notice and unsupported-option reasons. Model's existing preview uses Codex only when the preview data has the Codex marker.
+- [x] Prove no Claude version/installation/settings/global-command/update activity on startup/save/import; save/reload the separate config and preserve extra lines/unknown widget metadata. Run existing Claude App/component/model suites and new profile tests unchanged.
+
+#### C2: width proof and built formatter
+
+**Files:** only the existing ignored demo real-stats.json and ignored proof files; generated local dist is uncommitted.
+
+- [x] Reproduce full-minus-40 truncation with the synthetic payload/actual built command at a representative width. Assert the same input fits in full mode at sufficient width and still truncates safely when narrow.
+- [x] Change only the copied Codex settings to full. Preserve original Claude settings hash, all widget settings/order/colors and the preview's launch quoting. Run existing synthetic no-Claude/no-network proof.
+- [x] Run focused tests, lint, full applicable formatter regression and build/version proof. Use the existing Bun executable without installing/updating dependencies. A local Node formatter test/build is permitted; no Rust compile/test/app execution.
+
+#### C3: Task8 installer and shims
+
+**Files:** codex/codexs/install.ps1, install.Tests.ps1 and README.md; existing Codex workflow quick-check job only for these isolated tests.
+
+**Interfaces:** installer functions accept a source root, binary path, pre-extracted matching main/helper package roots, formatter/Node/config paths and owned install/shim roots. Explicit evidence includes expected full source SHA, release version, successful hosted run references and binary SHA256. Read-only Git identifies source HEAD; source manifest/version and platform alias must match. Injectable file/version/process/disk seams are for synthetic tests; production preflight does not trust test seams. Real execution requires the explicit real-install STOP. Generate shims inside staging, with setlocal and managed-variable clearing; no implicit npm/global/PATH mutation.
+
+- [x] Write PowerShell tests with synthetic source/package/vendor/binary/evidence inputs and injected probes. Exercise preflight mismatches, missing required helpers, path containment/reparse/root rejection, raw8GiB guard, running/locked targets, copy failure, first/second rename failure, rollback failure, backup retention and both command/environment/argument/exit contracts.
+- [x] Observe behavioral RED, then implement complete vendor staging and checked swap/rollback. Resolve relative bin/helper paths from the matching0.162.1 package layout. Reject the installed official0.165.0 package as a0.162.1 helper source.
+- [x] Run tests in an owned temporary root using fake probes/children, never the actual Codex executable. Parse PowerShell and workflow, add a quick validation step, and document exact inputs, evidence provenance, command discovery, install/rollback and manual gates.
+
+#### C4: final candidate verification and manual boundary
+
+- [x] Run focused editor/entry/widget/privacy regression, installer assertions, lint/build and whitespace/scope checks. Preserve the frozen Claude fixture, both official configs/global packages and retained59.snap.new/1.pending-snap. Record counts/failures honestly.
+- [x] Update these same three docs with actual results and remaining manual checks. Do not publish without fresh Git permission. Do not rerun unchanged Rust acceptance just to test TypeScript/PowerShell; existing hosted feature execution on a future push remains the workflow's behavior.
+- [ ] STOP for the user to complete remaining Task7 manual checks using the existing binary/preview. After these and candidate validation pass, present concrete real install/config/shim/PATH changes for separate approval; then validate installed commands and Task9 GroupA before Task10.
+
+Task10 remains the next metrics implementation after GroupA approval: schema-v1 validation, subset-aware cached/total tokens, matching speed interval, session name/compactions and Codex-only context fallback guards. Its expanded exact paths are in the approved spec; do not silently promote pending metrics in C1. Task11 repeats full safeguards and GroupB visual checks. Task12 global replacement/capture is optional and separately gated.
 
 - The user alone runs state-changing git and gh commands. Do not clone, fetch, switch, branch, stage, commit, merge, rebase, push or change git config. Read-only git may use a **command-scoped** safe.directory value for this exact checkout if sandbox ownership requires it; do not persist that setting.
 - System installs (MSVC, rustup, npm global), global ccstatusline replacement, editing ~/.codex/config.toml, and user visual verification each have explicit STOPs below. The first true ccstatusline command invoked by codexs comes **after Task 0A and its safety tests**. Echo-only Codex smoke is permitted earlier.
@@ -204,19 +287,19 @@ Implementation2544325 plus reviewed fixture correction6591c93 passed all80 focus
 - [x] **Production candidate preparation only:** reviewed integration implementation and two append-only lifecycle regressions published at b92a381/run39370893673; original136 cases preserved,138 expected. Source/static checks are complete; the implementation and metric acceptance checkboxes below remain open until hosted behavior verification. Full-suite and manual gates remain open.
 - [x] Add identity-tagged StatusLineCommandOutput and StatusLineCommandTick events and dispatch. Initialize the runtime in every ChatWidget constructor/test helper. Attach footer refresh and snapshot acquisition. Use the actual footer width; cap rendering on receipt. On config reload or session reset call runtime invalidation before scheduling new work. Make stale events inert.
 - [x] Count active-turn **wall time** once per successful live start/completion pair, including tool and approval waits. Running time appears in the snapshot. Replay or failed start adds none. Count each unique live compaction id once; duplicate/replay events add none. Resume resets launch-local clocks and speed baseline. Assert these semantics in tests.
-- [ ] Build and run focused integration tests, then the **full** codex-tui suite and compare exact counts with Task 0. Inspect any changed snapshot; do not accept changed default behavior without cause.
+- [x] Build and run focused integration tests, then the **full** codex-tui suite and compare exact counts with Task 0. Verified2026-10-28 at4beaeb1: feature144passed0failed; full5789passed0failed8ignored5797total, versus measured original5580passed65failed8ignored5653total. The separate approved baseline cleanup resolved the65 failures without accepting changed snapshots. Config366/366 and release CLI build also pass. Manual checks in the following item remain open.
 - [ ] **Echo-only smoke:** with a controlled temporary Codex config and no credential copy where possible, run a literal echo command to verify footer success, failure fallback and one warning. This is **not** a ccstatusline invocation. Remove only the exact validated temp path afterward. User visual confirmation is a STOP; record pass/fail, not an assumed pass. Checkpoint: all Task 7 files and suggested user commit.
 
 ### Task 8: staged installer and guide
 
-**Files:** repository-root codexs/install.ps1, codexs/install.Tests.ps1 and codexs/README.md. The test file uses built-in PowerShell assertions and a controlled temporary install root; do not install Pester.
+**Files:** repository-root codexs/install.ps1, install.Tests.ps1 and README.md; the existing workflow has one isolated-installer quick-check step. C3 is the approved implementation amendment.
 
-- [ ] In codexs/install.Tests.ps1, write self-contained PowerShell tests for missing/mismatched source, npm main package and Windows x64 optional helper package, staged missing helpers, locked old executable, running helper process, failed copy, failed first/second rename, rollback, old backup retention and shim environment. Use an injectable stage/swap failure seam and a controlled temporary install root; do not install Pester or touch the user's installation. No test may forcibly kill a user's process.
-- [ ] Installer resolves npm.cmd root -g, reads @openai/codex/package.json and @openai/codex-win32-x64/package.json, validates the source/main/binary release version and the helper version against its declared optional-dependency alias (verified 0.162.1-win32-x64, not literal equality with 0.162.1), validates process architecture, and locates the helper package/vendor path from the **installed package layout**. Compare source workspace version and built binary version as well. A PATH codex.cmd version check is supplementary, never sole proof.
-- [ ] Disk check uses DriveInfo raw bytes and rejects unavailable readings. Build release codex-cli and run **full** cargo test --release -p codex-tui before swap. Check each native $LASTEXITCODE immediately. The readme explains setup STOPs and user-only git update steps.
-- [ ] Stage a complete vendor copy in a unique sibling of %LOCALAPPDATA%\codexs; replace only staged bin\codex.exe; validate executable version and required codex-path/codex-resources files. Resolve every recursive-operation path under the intended %LOCALAPPDATA% root, rejecting root/empty/outside paths. Check whether the destination binary or helper process is running and handle locks without forced termination. Use a checked sequence of directory renames (old to backup, stage to destination), not a claimed atomic multi-directory swap. On failure after the first rename, restore old destination and report any rollback failure. A rename success alone does not prove a locked installation is safe to replace. Keep the existing installation usable on preflight/copy failure, do not delete an existing backup at start, and rotate a backup only after later verified success.
-- [ ] Write codexs.cmd using setlocal, clear CODEX_MANAGED_BY_NPM and CODEX_MANAGED_PACKAGE_ROOT, prepend codex-path, invoke bin\codex.exe with all args and return its exit code. Test inherited npm variables are absent to the child.
-- [ ] **STOP before installing** into real %LOCALAPPDATA% and user shim. After approval, run install and verify codexs.cmd --version from a new terminal. Checkpoint: installer/readme and suggested user commit.
+- [x] Prepare built-in PowerShell assertions with owned temporary roots and synthetic source/package/vendor/version/disk/process inputs. Final36/36 pass, including real owned junction/lock checks, failure injection, backup/rollback failure and real C# argv/environment/cwd/exit probes. No Pester or forced user-process termination.
+- [x] Validate explicit pre-extracted matching main/platform package roots, optional dependency alias, source/version/PE architecture, native source HEAD, binary hash/version and typed nonzero successful hosted evidence. Do not substitute official0.165.0 helpers for0.162.1. Actual matching package inputs have not yet been prepared.
+- [x] Use raw DriveInfo bytes with the8GiB guard and reviewed hosted build/full-suite evidence instead of local Rust. README covers input provenance, matching packages, safe install/rollback, command discovery and user-only Git steps. Actual binary version execution is reserved for hosted CI or the separately approved user-run installer.
+- [x] Implement complete vendor staging, required helper checks, path/reparse/running/lock checks, sequential swaps, retained backups and rollback with explicit recovery errors. No real destination has been swapped.
+- [x] Generate both managed shims and the staged Node bootstrap. Preserve working directory, arguments, user override ordering and exit codes; clear npm-management variables and prepend codex-path in the native child. Both command probes cover spaces, Unicode, empty arguments and literal quotes.
+- [ ] **STOP before real installation/config/shims/PATH.** First finish the remaining Task7 manual checks with the existing preview, then review exact matching package/evidence inputs and installation changes. After approval, verify both commands from a fresh terminal and an unrelated directory. User PATH currently lacks the shim directory and neither shim nor real install exists.
 
 ### Task 9: prepare user config and end-to-end Windows checklist
 
@@ -238,8 +321,8 @@ Task 0A's guard is already in place. Work against the local checkout/build. The 
 
 **Files:** src/utils/codex-input.ts and tests; src/ccstatusline.ts; formatter integration tests.
 
-- [ ] Failing tests for schema exactly 1, malformed/unknown schema, negative/fractional/unsafe counts, cached count exceeding input, NaN/infinite/out-of-range percentages, absent limits, resumed session baseline, missing matching speed sample, counter reset, compaction count and thread name. Marker protection remains true even if extras parsing fails.
-- [ ] Parse each optional extras field defensively. Invalid optional fields omit only their derived metric. Map Codex cached input as a subset, keep Codex extras ahead of any transcript-derived value, and never read a Codex transcript_path. For speed, use only speed_tokens deltas and turn_wall_duration_ms from the same launch-local lifetime; no valid pair means no speed. Do not divide full thread totals by launch-local time. Compactions and session name use validated extras.
+- [x] Failing tests for schema exactly 1, malformed/unknown schema, negative/fractional/unsafe counts, cached count exceeding input, NaN/infinite/out-of-range percentages, absent limits, resumed session baseline, missing matching speed sample, counter reset, compaction count and thread name. Marker protection remains true even if extras parsing fails.
+- [x] Parse each optional extras field defensively. Invalid optional fields omit only their derived metric. Map Codex cached input as a subset, keep Codex extras ahead of any transcript-derived value, and never read a Codex transcript_path. For speed, use only speed_tokens deltas and turn_wall_duration_ms from the same launch-local lifetime; no valid pair means no speed. Do not divide full thread totals by launch-local time. Compactions and session name use validated extras.
 - [ ] Run focused parser and formatter tests, full Vitest and lint. Confirm Task 0A's group C suppression and fixed Claude fixture still pass. Checkpoint: files and suggested user commit.
 
 ### Task 11: full safeguard and integration gate
@@ -1104,3 +1187,268 @@ The three existing mapped progress documents and ignored codex-rs/target evidenc
 - Source [4beaeb1faff11bdb62613e8acb837f0ec85350a5](https://github.com/TK-06/codexs/commit/4beaeb1faff11bdb62613e8acb837f0ec85350a5), test: assert trusted directory transition checks once, contains only tui/src/app/tests/session_lifecycle_requests.rs under codex-rs (9 insertions,4 deletions). Its staged blob matched the reviewed working file and staged whitespace passed. Normal push completed; remote statusline-command matched the full SHA. No production/config/workflow/profile or other branch/configuration change was made.
 - Push started [feature40641163361](https://github.com/TK-06/codexs/actions/runs/40641163361). Manual cleanup dispatch started [acceptance40641182703](https://github.com/TK-06/codexs/actions/runs/40641182703). Both report headSha4beaeb1faff11bdb62613e8acb837f0ec85350a5. The acceptance matrix resolved Windows(full), Windows(config), Windows(build), on separate runners; native jobs are queued/in progress. The prior144/144 feature,366/366 config and CLI0.162.1 results remain evidence, not a substitute for this exact-source rerun.
 - Results for the corrected test remain pending. Expected complete inventories remain144 feature and5797 TUI (including the8 pre-existing ignored cases), with no new ignore/skip/allowlist. The corrected fixture must prove both Trusted preconditions and one exact original-thread request per closed-agent variant. Task7 full acceptance/echo/manual and Task8 gates remain open. These same three progress docs are published separately under this grant; private data and pending snapshots remain excluded.
+
+## Approved parallel prototype preparation (2026-10-29)
+
+The user approved the branding/version proposal and explicitly requested concurrent subagents for branding, installation preparation and remaining metrics. Product identity is `codexs-statusline | v1.0.0`; product version is independent of native0.162.1/formatter2.2.32. No Git writes, actual installation, PATH/config changes or local Rust execution are authorized. Existing source/docs HEADs remain4beaeb1/e5ec35c; existing candidate edits are preserved.
+
+Ruling: prepare Task10 concurrently with installer/branding before GroupA acceptance -- the latest user explicitly requests all workstreams concurrently -- cost if wrong is reversible code rework; installed-path/manual GroupA and GroupB acceptance remain open.
+Ruling: concurrent implementers use disjoint ownership despite the skill's default sequential dispatch -- user explicitly requests parallel agents -- shared version/catalog interfaces are coordinated by root and independently reviewed.
+Ruling: use this existing plan as ledger and ignored codex-rs/target/codexs-editor-installer-proof/parallel-prototype-v1 for briefs/reports/baselines/diffs -- user File Map and Git restrictions override skill worktree/commit/.superpowers defaults -- no tracked scratch files or unapproved Git mutations.
+
+| Workstream pair/task | Shared interface or consistency check | Resolution |
+|---|---|---|
+| A branding / B installer | Formatter product diagnostic feeds manifest | A canonical CODEXS_VERSION and CODEXS_STATUSLINE_NAME; B parses C diagnostic, no duplicated version source |
+| A branding / C metrics | Profile gates new widgets; C owns CLI diagnostic | A owns profile/App; C owns CLI/parser/context files; activation after C test handoff |
+| B installer / C metrics | --codex --version pre-config/pre-TTY diagnostic | Exact `codexs-statusline 1.0.0`; ordinary formatter version remains2.2.32 |
+| A itself | Codex identity versus unchanged Claude title | Conditional product identity; no package/Cargo version changes |
+| B itself | Preparation versus real installation STOP | Synthetic probes only; manifest separates product/native versions; real install/PATH remain gated |
+| C itself | Existing widget assumptions versus native metrics | Defensive native schema; no fabricated speed/compaction/context policy; Claude byte parity and zero-side-effect guards |
+
+- [x] A: branding/capability changes, assertion RED/GREEN and independent task review.
+- [x] B: installer version/provenance preparation, assertion RED/GREEN and independent task review.
+- [x] C: nine extras mappings/context safety/product diagnostic, assertion RED/GREEN and independent task review.
+- [x] Combined checks executed, full local suite attempted, broad review/fixes completed and final evidence recorded; full-suite acceptance remains non-GREEN as reported below.
+- [ ] Retained gates: manual Task7/9/GroupB acceptance, exact matching package/evidence inputs, separate real-install/PATH approval, current-turn Git publication approval.
+
+Approved cache scope addition2026-10-29: the user explicitly approved src/widgets/shared/cache-metrics.ts and src/widgets/__tests__/CacheWidgets.test.ts. Codex cache hit rate uses cached input / total input; the existing Claude read / (read + creation) behavior stays unchanged. Workstream C owns these files; baseline copies were saved before dispatching this addition.
+
+Workstream B complete in working tree (HEAD4beaeb1 unchanged):46 isolated assertions pass after36pass/9fail behavioral RED. Independent task review: spec compliant, quality approved, no findings. Actual formatter diagnostic integration is reserved to combined checks; exact packages/artifact/manual installation gates remain pending. Strict exact-HEAD evidence matching remains unchanged; installer-only commits require a fresh matching hosted artifact or a separately supplied clean pinned source checkout. Evidence: ignored parallel-prototype-v1/task-b-report.md and task-b-review.md.
+
+Workstream A complete in working tree (HEADe5ec35c unchanged):34 App/profile tests pass after branding/catalog behavioral RED. Independent task review: spec compliant, quality approved, no actionable findings; actual C renderer/CLI integration remains the combined gate. Catalog92 now69 available/0pending/23unavailable after C parser handoff. Product title/constantv1.0.0 affects Codex mode only; ordinary title/version remain unchanged. Evidence: ignored parallel-prototype-v1/task-a-report.md and task-a-review.md.
+
+## USER-REQUESTED PAUSE -- 2026-10-29 (travel/computer shutdown)
+
+Stop implementation and tests until the user resumes. No Git/GitHub writes, real install/PATH/config changes or local native execution occurred. Existing uncommitted edits are preserved. Do not redispatch completed A/B work.
+
+- A branding: CODEXS_VERSION1.0.0 canonical; Codex title/diagnostics independent of upstream versions. App/profile34GREEN; independent task review and deferred-import re-review clean. Full lint/typecheck subsequently exited0.
+- B installer:46 synthetic assertions pass, including fresh GitHub-style exit-boundary verification0; independent task review clean. Exact matching packages/artifact, actual install/PATH and manual gates remain pending. Strict exact-HEAD evidence unchanged.
+- C metrics: nine mappings provisionally active (92catalog=69available/0pending/23unavailable); initial focused93GREEN plus18nested safety cases. Independent review required preserving reset timestamps independently of missing/invalid usage percentage. Fix-round1 sanitizer change is in working tree; covering tests not finally GREEN/re-reviewed yet.
+- NEW OPEN PRIVACY REGRESSION: fix-round1 expanded tests observe reset-timer calling getCachedBlockMetrics when native reset is absent/invalid (five observed calls), although block-timer is filtered. Resume by preserving this failing assertion, extend existing missing-reset guard to reset-timer inside already-mapped src/ccstatusline.ts, prove zero Claude fallback calls, then re-review complete fix round. Do not weaken/isolate away this regression assertion.
+- Root full Bun before reset fix:3158passed19skipped6failed/3183total, exit1,178files. Four Windows permission failures (symlink +3terminal-cache lock); unchanged usage-fetch and SessionName tests timed out at5000ms. Source/test files for terminal cache, usage-fetch and SessionName matchHEAD. Full log: ignored parallel-prototype-v1/bun-full-final.log. No baseline cleanup authorized/performed.
+- Latest full lint/typecheck exit0 (before timer fix), log lint-final.log. No new combined build/built-Node/privacy/width/protected-file proof or broad final review completed. Generated dist may still be the earlier candidate; do not claim rebuilt v1.0.0 demo readiness.
+- Resume evidence location: codex/codex-rs/target/codexs-editor-installer-proof/parallel-prototype-v1 contains task-a/b/c briefs/reports/diffs/reviews, baseline snapshots, reset-fix before copies, logs and prepared run-check.cjs/build/privacy/review scripts. Root owns docs; workers ownership in briefs. A/B reviews cannot-verify integration items remain until root final checks. Pending snapshots remain excluded; protected-baseline.json records their hashes/original settings/indexes for final verification.
+- Still required after C fix: scoped fix diff/re-review; combined focused suite, persistence checks, lint/build; actual built Node product diagnostics/privacy plus existing width/exact-cmd proof; protected files/indexes/scope/whitespace check; broad final candidate review and one fix wave if needed; update these same docs honestly. Real native/manual application checks and installation require their retained user gates. No Git authorization carries into resume.
+2026-10-29 resumed by explicit user request: continue unfinished C fix-round1, then combined verification and subagent reviews. Existing mapped src/ccstatusline.ts reset-timer guard is authorized as necessary to the already approved zero-Claude-fallback contract. Retain failing assertions. No Git/GitHub, real-install/PATH/config, native Rust or manual application execution is authorized. A/B complete work is not redispatched. Source/docs HEADs remain4beaeb1/e5ec35c. Prior pause is lifted for this approved work only.
+
+C fix round1 complete:103Cfocused/20nestedGREEN; scoped re-review addressed both findings, no new breakage. Combined11-file Vitest run164pass1fail: existing Codex ItemsEditor unavailable-picker test failed, output reached clear/delete confirmation instead of Unavailable. Investigate deterministic interactive input within already-approved ItemsEditor component/test paths; preserve assertions. A owns this narrow integration follow-up; snapshots saved before edits. No unrelated changes authorized.
+
+C fix round1/5 closed (2 addressed,0open; unchangedHEAD): independent reset fields and missing-reset session timer privacy both verified;103focused/20nestedGREEN; scoped re-review spec/qualityPASS. Picker integration follow-up is test-only,14focused and165combinedGREEN; independent scoped reviewPASS. Separate Codex persistence5GREEN. Fresh built formatter product checks3version+5extras/privacyGREEN, width3GREEN, exactcmd/privacy3GREEN, actual installer formatter-version probeGREEN and46installer assertions/GitHub exit boundary0. AST/workflow invariant checks pass. README capability text updated after C verification. Final full lint/fullBun/broad review remain pending.
+
+Broad review found F1 Important config guard bypass (default account file, default-root protection with override and canonical protected aliases), plus F2 Minor unsupported-option preview samples. Dispatch one final fix worker for these six already-mapped config/profile/entry and test files; retain zero-read-before-guard and original item immutability assertions. Prior code fullBun3168pass19skip6fail/3193total178files; final lint0. One scoped fix review follows; no release/install/Git acceptance implied.
+
+## Final prototype candidate verification -- 2026-10-30
+
+Implementation and scoped reviews are complete for the authorized reversible preparation. Product is `codexs-statusline | v1.0.0`; upstream native0.162.1 and formatter2.2.32 retain their identities. This is a candidate, not an accepted release/tag or installed global command.
+
+| Verification | Final result |
+|---|---|
+| Combined Vitest editor/parser/renderer/widgets | 166passed/11files, exit0; frozen118-byte Claude fixture unchanged; nested20-case safety matrix required GREEN |
+| Separate Codex persistence/path protection | 10passed,27 unrelated tests excluded, exit0 |
+| Bun cross-file preload compatibility | 18passed/124assertions/3files, exit0; includes config-dir preload, protected paths and existing Git cases |
+| Isolated PowerShell installer | 46passed,0failed; GitHub-style native exit boundary0; original security/rollback/argv cases retained |
+| Typecheck/lint and local formatter build | both exit0; no dependencies/upstream Cargo/package/lock versions changed |
+| Built Node product/version/privacy | 3version diagnostics and5extras/privacy cases pass |
+| Built protected-path boundary | 3pre-content rejections pass, including an actual owned Windows junction target; synthetic bytes unchanged |
+| Width / exact Windows footer command | 3width cases and3exactcmd/privacy cases pass; original formatter settings hash unchanged |
+| Installer integration / workflow | production probe recognizes actual built `codexs-statusline 1.0.0`; PowerShell AST and one-added-step workflow invariants pass |
+| Full canonical Bun run | 3174passed,19skipped,6failed/3199total178files,82.77s,exit1; exact output below |
+
+Broad review F1 is resolved: protect default/configured Claude directories and account files plus captured/current formatter settings, including canonical aliases and new descendants, before content access/migration/save. F2 is resolved: one static option predicate keeps preview/live eligibility aligned for unsupported speed windows and compaction details without mutating settings. Session timers omit missing native resets before Claude cached fallback; independent weekly resets remain supported. Unknown context capacity remains unknown.
+
+The full run caught and drove removal of test-only global builtin module replacements. The final implementation uses direct reversible fs/os spies with shared default import bindings. Preloaded config-dir and existing Git tests now pass in the same Bun process; all six newly introduced mock-isolation failures are gone. No baseline deadline, permission policy, snapshot or unrelated test was changed.
+
+Final full-suite output (non-GREEN):
+
+```text
+(fail) config utilities > saves through a symlinked settings file without replacing the link [4.59ms]
+(fail) terminal width cache > write locking > skips the write when a fresh lock is already held (concurrent writer) [0.67ms]
+(fail) terminal width cache > write locking > does not clobber another writer: only its own entry is ever written under contention [1.10ms]
+(fail) terminal width cache > write locking > steals a stale lock (older than the staleness threshold) and proceeds [0.40ms]
+(fail) fetchUsageData error handling > uses only the access-token fingerprint when the refresh token is empty (cached token "") [5512.03ms]
+(fail) SessionNameWidget > reads the latest title from a transcript larger than Node maximum string length [12802.25ms]
+3174 pass
+19 skip
+6 fail
+Ran 3199 tests across 178 files. [82.77s]
+```
+
+The four permission failures occur before the relevant behavior can run: Windows file-symlink creation and three `/tmp` lock writes. The unchanged usage-fetch access-token fingerprint case took5512.03ms and the unchanged large-transcript SessionName case12802.25ms, exceeding5000ms. The usage-fetch timeout case varies between runs; do not claim these exact six tests are a fresh baseline comparison or a green suite. Native accepted source remains unchanged; no new hosted candidate run has occurred. Full local acceptance remains open; no broader baseline cleanup is authorized.
+
+Evidence remains in ignored `codex/codex-rs/target/codexs-editor-installer-proof/parallel-prototype-v1`: reports/reviews, complete raw full-combined.log, built proof results and candidate-inventory.json. No real payload captures, credentials, personal fixture paths, session IDs or pending snapshots are included in the publishable candidate. Final scoped review is PASS; controller verification does not convert a failed full run into success.
+
+Remaining gates: fresh explicit Git/GitHub publication permission and candidate CI; actual matching0.162.1 package/artifact/evidence inputs; remaining Task7/9 and GroupB user-observed lifecycle/resize/fallback/trusted-layer/cleanup/idle checks; separate concrete real-install/shim/PATH approval. No `~/.codex/config.toml`, global package, actual install, user PATH or real shim was changed. Optional Task12 global replacement/private capture remains separately gated. Do not mark Task10/11 acceptance complete solely from the focused checks.
+
+Execution rulings remain those recorded above: concurrent disjoint workers at user request; Task10 code preparation before GroupA while manual gates remain; existing checkouts/ledger and ignored evidence instead of unapproved worktrees/commits. Their cost if wrong is reversible rework and retained local evidence; no irreversible publication occurred. Keep these ignored proofs while the candidate is uncommitted rather than deleting its only validation record.
+
+Suggested user commits (not executed): `feat(codexs): add v1 prototype editor and native metrics` in ccstatusline; `feat(codexs): prepare versioned staged launchers` in Codex; optionally separate the three progress docs as `docs(codexs): record prototype verification and remaining gates`. Stage only approved paths; exclude captures, user configs and all59.snap.new/1.pending-snap.
+## Approved phase closeout and editor tab title -- 2026-10-30
+
+The user explicitly deferred native multiline support to the next task and approved completing the remaining current-phase work inline with executing-plans. Keep the single first-nonempty-line contract and saved Line2 unchanged. The user confirmed the local demo works well; record this as observed launch/usability feedback only, not evidence for unperformed lifecycle/project-trust/cleanup gates.
+
+Scope: existing mapped src/tui/App.tsx, src/tui/__tests__/App.test.ts and existing helpers/render-app.ts for Codex-only interactive tab-title output. Existing three progress docs and codexs/README.md for current-phase/manual handoff; no new production module, native or workflow change. Tab title uses canonical codexs-statusline, matching the command, as accepted in the prior proposal. No Git/GitHub write or real-install/PATH/config permission is granted by this message.
+
+Ruling: reuse this checkout/ledger and ignored target proof folder instead of skill helper worktrees/commits -- existing File Map and user Git ownership apply -- cost if wrong is reversible local rework; keep proof artifacts until publication.
+
+| Shared interface | Checked contract |
+|---|---|
+| Canonical Codex profile name -> App terminal title | Same codexs-statusline constant, no separate version/name source |
+| Ink stdout -> title and tests | Use actual component with injected synthetic streams; interactive Codex only, never ordinary or redirected output |
+| Footer/native renderer -> saved Line2 | No native changes; defer multiline, preserve saved extra lines |
+| Phase closeout -> deployment/manual tasks | Prepare concrete instructions and evidence; retained explicit approval/manual gates stay open |
+
+- [x] Title: behavior assertions RED, minimal TTY-only implementation, focused GREEN; no snapshots accepted.
+- [x] Record deferred multiline and remaining concrete CI/package/manual/install gates; user demo feedback stays narrowly stated.
+- [x] Executed focused/privacy/compatibility checks, lint/build and full Bun, recorded exact failures, completed one fresh final review and checked settings/snapshot/Git preservation. Full-suite and deployment/manual acceptance remain open.
+Title test-first evidence: real App30-case suite failed1/passed29 before implementation because the expected OSC0 Codex title was absent. After adding a Codex+TTY-only useEffect through Ink stdout, the same suite passed30/30, exit0. Cases assert one title request across save/rerender, no ordinary-mode title, no redirected-output title. Logs: phase-closeout-title/title-red.log and title-green.log. No native source, demo settings or existing snapshots changed.
+
+### Current-phase delivery checklist (multiline excluded by user decision)
+
+| Item | State and exact next action |
+|---|---|
+| Current local launch/editor setup | User confirmed launch and setup work well. No blanket acceptance of other manual cases is inferred. |
+| Editor tab title | Code requests codexs-statusline on interactive Codex stdout; user-observed title check follows the rebuilt editor. No Windows Terminal profile setting is edited. |
+| Saved extra lines | Preserved, including configured Line2; native multiline support is a separate next task. |
+| Publishable candidate | Thirty formatter paths and four Codex packaging/workflow paths; explicit staging paths below. No payloads, user configs, binaries, target proofs or pending snapshots belong in a commit. |
+| Hosted candidate CI | Needs fresh Git/GitHub write authorization or user-run commands. Formatter push runs its lint/test/build. Codex push runs feature acceptance; manually request cleanup scope for full/config/build and exact-source artifact. |
+| Remaining manual application checks | Still require observed prompt/interval refresh, resize, fallback with one warning, proven loaded project-layer command rejection, exact descendants gone after refresh/shutdown, idle soak, and conditional native metric behavior. Do not mark a case passed solely from generic demo feedback. |
+| Matching installation inputs | Source/binary/evidence must name the same post-publication Codex HEAD. Obtain actual successful feature/full/config/build summaries and binary SHA256. Review pinned main0.162.1 and helper0.162.1-win32-x64 packages, archive paths/integrity; package download is a separate approved preparation step. Never substitute official0.165.0 helpers or the older demo artifact for exact-source evidence. |
+| Stable user formatter settings | Propose copying current customized demo settings into the separate user codex.json after explicit config approval; if it exists, review/preserve it. Do not leave the sole persistent user copy under a disposable target folder. |
+| Real install | Separate approval for %LOCALAPPDATA%/codexs staged vendor/launch files and %USERPROFILE%/.local/bin/codexs.cmd and codexs-statusline.cmd. Installer tests are preparation, not evidence these locations were installed. |
+| User PATH | Separate approval to add the shim directory only if absent; verify from a fresh terminal and unrelated cwd afterward. |
+| Official/Claude configuration | No official Codex package downgrade, ~/.codex/config.toml edit or global ccstatusline replacement is needed for the launch-argument design. Optional global replacement/capture remains outside this phase. |
+
+Publication commands below are prepared for the user; the agent has NOT run them. Review the staging lists before commit. If any unrelated staged file is present, resolve that yourself before proceeding. Git authorization remains current-message-only.
+```powershell
+$projectsRoot = Join-Path $env:USERPROFILE 'Documents\computer_programming\Projects'
+$formatterRepo = Join-Path $projectsRoot 'ccstatusline'
+$codexRepo = Join-Path $projectsRoot 'codex'
+$formatterPaths = @(
+    'docs/superpowers/handoff/2026-10-11-codexs-handoff.md',
+    'docs/superpowers/plans/2026-10-11-codex-statusline-command.md',
+    'docs/superpowers/specs/2026-10-11-codex-statusline-command-design.md',
+    'src/__tests__/codex-render.test.ts',
+    'src/ccstatusline.ts',
+    'src/tui/App.tsx',
+    'src/tui/__tests__/App.test.ts',
+    'src/tui/__tests__/codex-profile.test.ts',
+    'src/tui/__tests__/helpers/render-app.ts',
+    'src/tui/codex-profile.ts',
+    'src/tui/components/ItemsEditor.tsx',
+    'src/tui/components/MainMenu.tsx',
+    'src/tui/components/StatusLinePreview.tsx',
+    'src/tui/components/__tests__/ItemsEditor.test.ts',
+    'src/tui/components/__tests__/StatusLinePreview.test.ts',
+    'src/utils/__tests__/codex-input.test.ts',
+    'src/utils/__tests__/config.test.ts',
+    'src/utils/__tests__/context-percentage.test.ts',
+    'src/utils/codex-input.ts',
+    'src/utils/config.ts',
+    'src/utils/context-percentage.ts',
+    'src/widgets/ContextBar.ts',
+    'src/widgets/ContextPercentageUsable.ts',
+    'src/widgets/ContextWindow.ts',
+    'src/widgets/Model.ts',
+    'src/widgets/__tests__/CacheWidgets.test.ts',
+    'src/widgets/__tests__/ContextBar.test.ts',
+    'src/widgets/__tests__/ContextPercentageUsable.test.ts',
+    'src/widgets/__tests__/Model.test.ts',
+    'src/widgets/shared/cache-metrics.ts'
+)
+git -C $formatterRepo add -- @formatterPaths
+if ($LASTEXITCODE -ne 0) { throw 'Formatter staging failed' }
+git -C $formatterRepo diff --cached --name-only
+# Review the staged list before running the commit/push commands.
+git -C $formatterRepo commit -m 'feat(codexs): finish v1 editor and native metrics'
+if ($LASTEXITCODE -ne 0) { throw 'Formatter commit failed' }
+git -C $formatterRepo push origin statusline-command
+if ($LASTEXITCODE -ne 0) { throw 'Formatter push failed' }
+
+$codexPaths = @(
+    '.github/workflows/codexs-statusline.yml',
+    'codexs/README.md',
+    'codexs/install.Tests.ps1',
+    'codexs/install.ps1'
+)
+git -C $codexRepo add -- @codexPaths
+if ($LASTEXITCODE -ne 0) { throw 'Codex staging failed' }
+git -C $codexRepo diff --cached --name-only
+# Review the staged list before running the commit/push commands.
+git -C $codexRepo commit -m 'feat(codexs): prepare versioned staged launchers'
+if ($LASTEXITCODE -ne 0) { throw 'Codex commit failed' }
+git -C $codexRepo push origin statusline-command
+if ($LASTEXITCODE -ne 0) { throw 'Codex push failed' }
+```
+
+After the pushes, request the exact-source hosted full/config/build scope and inspect the run IDs printed by run list. These are also user-only GitHub write instructions, not executed here:
+
+```powershell
+$ghExe = Join-Path $env:ProgramFiles 'GitHub CLI/gh.exe'
+& $ghExe workflow run codexs-statusline.yml --repo TK-06/codexs --ref statusline-command -f scope=cleanup
+if ($LASTEXITCODE -ne 0) { throw 'Workflow dispatch failed' }
+& $ghExe run list --repo TK-06/codexs --workflow codexs-statusline.yml --limit 5
+& $ghExe run list --repo TK-06/ccstatusline --limit 5
+```
+
+Watch each chosen run with `gh run watch <actual-run-id> --repo <repo> --exit-status`. Wait for the build/upload job to finish successfully before downloading. List unexpired artifacts with `gh api repos/TK-06/codexs/actions/runs/<actual-run-id>/artifacts --jq '.artifacts[] | select(.expired == false) | .name'`, then download the exact listed artifact. A green feature job alone does not establish full/config/build acceptance or create a downloadable build artifact. Record actual results rather than carrying older success counts forward.
+### Final inline closeout results (2026-10-30)
+
+The title implementation and phase-closeout preparation passed the single fresh final review with no actionable Critical, Important or Minor findings. Source scope for this action: App.tsx, App.test.ts, existing helpers/render-app.ts, the same three progress docs and codexs/README.md. All earlier uncommitted candidate work is preserved. No native/footer/multiline implementation was performed.
+
+- Title behavior: missing OSC0 request produced a genuine 1-failed/29-passed RED; minimal interactive Codex hook then passed 30/30. Ordinary output and redirected output contain no title request; saving/rerendering emits no duplicate request.
+- Current combined Vitest suite: 168 passed in11 files, exit0. Codex persistence/path protection:10 passed,27 unrelated tests excluded, exit0. Existing frozen Claude bytes and nested privacy checks remain required by the renderer suite.
+- Lint/typecheck and local formatter build exit0. Built Node three version diagnostics and five extras/privacy cases pass, including exact plain version output without terminal controls.
+- Full canonical Bun:3177 passed,19 skipped,5 failed/3201 total178 files,69.66 seconds,exit1. This is not a green full-suite result.
+
+```text
+(fail) config utilities > saves through a symlinked settings file without replacing the link [7.83ms]
+(fail) terminal width cache > write locking > skips the write when a fresh lock is already held (concurrent writer) [0.92ms]
+(fail) terminal width cache > write locking > does not clobber another writer: only its own entry is ever written under contention [1.27ms]
+(fail) terminal width cache > write locking > steals a stale lock (older than the staleness threshold) and proceeds [0.34ms]
+(fail) SessionNameWidget > reads the latest title from a transcript larger than Node maximum string length [13448.05ms]
+  ^ this test timed out after 5000ms.
+3177 pass
+19 skip
+5 fail
+Ran 3201 tests across 178 files. [69.66s]
+```
+
+The first four failures are the previously recorded Windows fixture permission classes (file-symlink creation and /tmp lock writes), before the tested behavior. The final failure is the unchanged large-transcript timeout. Earlier usage-fetch timeouts did not recur this run; no cleanup, deadline relaxation or fixture/snapshot acceptance was applied. No new title/config/Git regression is observed. Hosted candidate acceptance is still required.
+
+Current-phase settings checks confirm both the original formatter configuration and the customized Codex demo configuration (including saved Line2) have unchanged hashes. Rust source, the retained59.snap.new/1.pending-snap, both HEADs and empty indexes are to remain unchanged at the final scope check. Installer production/test source and accepted native code are unchanged from their prior reviewed evidence; the46 installer assertions are prior-phase results, not a newly executed install.
+
+Final: Ruling: live terminal acceptance, universal terminal support and prior-title restoration are not certified by synthetic stdout checks -- emit the requested standard title and leave actual host confirmation manual; restoration was not requested -- cost if wrong is a terminal-specific follow-up or a persistent label until the shell changes it.
+Final: Ruling: native prompt/refresh/resize/fallback/project-layer/descendant/idle/metric observations remain explicit manual gates -- generic successful demo feedback cannot establish them -- cost is another guided manual session before deployment acceptance.
+Final: Ruling: stable config copy, real installation, shim discovery and PATH changes remain unperformed -- existing user approval gates apply outside the checkout -- cost is an additional installation approval and verification step.
+Final: Ruling: hosted CI, matching source/package/artifact provenance, release/tag and untested shell combinations remain unaccepted -- no current Git permission or authentic new hosted evidence exists; tested Windows quoting remains the supported preparation -- cost is waiting for publication/CI/package review and any needed edge-case follow-up.
+Final: Ruling: full-suite green and exhaustive ordinary-Claude parity remain unaccepted -- report the actual five failures and preserve baseline deadlines/permissions -- cost is a separate hosted validation or approved baseline cleanup, never an undisclosed green claim.
+Deferred minors from this review: none. The existing-checkout/ledger ruling above remains in force; proof artifacts stay local/ignored because the candidate is uncommitted.
+
+Evidence: ignored codex-rs/target/codexs-editor-installer-proof/phase-closeout-title contains before snapshots, title-red.log/title-green.log, focused/persistence/lint/build/full logs, built-product-result.json, phase-diff.md, complete candidate package and review.md. This completes all currently authorized reversible preparation; it does not close the remaining publication, hosted, package-input, manual, stable-config, installation or PATH gates. Multiline is a separate next task by explicit user instruction.
+Final scope check passed: this action changed only the three mapped App/test/helper files and four existing docs; earlier candidate implementation is unchanged. Both original/demo settings hashes match, all60 pending snapshot hashes match, native source is unchanged, both indexes are empty and HEADs remain formatter e5ec35c / Codex4beaeb1. Task title code is complete in working tree (App30/30; combined168/168); the full-suite acceptance gate remains OPEN at3177pass19skip5fail and all recorded external/manual/install gates remain OPEN. No Git mutation was performed. The explicit publication recipe above stages the cumulative30formatter/4Codex candidate paths only.
+
+### Authorized publication verification -- 2026-10-30
+
+The user explicitly authorized committing and pushing the reviewed thirty formatter and four Codex packaging/workflow paths and starting CI in this turn. This supersedes the prior publication STOP only for these concrete operations; installation, user configuration/PATH, package preparation, release/tag and manual acceptance gates remain open. Multiline remains deferred.
+
+Fresh pre-publication verification: combined focused Vitest168/168 and Codex persistence10/10 passed; lint/typecheck and formatter build exited0. Installer assertions46/46 passed with synthetic inputs. Built Node three version diagnostics and five native-extras/privacy cases passed. Workflow invariants passed: unique YAML keys, exactly the reviewed installer check added, existing jobs/scopes/guards unchanged. Exact candidate paths, unchanged native source, original/demo settings hashes and all60 pending snapshot hashes were checked before staging. No snapshots, captures, user settings, binaries or ignored evidence are in the staging lists.
+
+The first focused run had167passed/1failed: its isolated child timer-only case exceeded the existing5000ms limit while other verification was active. An unchanged sequential retry passed168/168; retain both logs as timing-sensitivity evidence, without changing code or deadlines.
+
+Fresh full Bun result remains non-green, exit1:
+
+```text
+(fail) config utilities > saves through a symlinked settings file without replacing the link [4.77ms]
+(fail) terminal width cache > write locking > skips the write when a fresh lock is already held (concurrent writer) [0.46ms]
+(fail) terminal width cache > write locking > does not clobber another writer: only its own entry is ever written under contention [1.13ms]
+(fail) terminal width cache > write locking > steals a stale lock (older than the staleness threshold) and proceeds [0.57ms]
+(fail) SessionNameWidget > reads the latest title from a transcript larger than Node maximum string length [7610.66ms]
+  ^ this test timed out after 5000ms.
+3177 pass
+19 skip
+5 fail
+8648 expect() calls
+Ran 3201 tests across 178 files. [65.74s]
+```
+
+These are the same recorded Windows fixture permission and large-transcript timeout cases. Publishing starts hosted candidate verification; it does not establish release readiness or resolve these failures. Fresh logs and the verified candidate inventory are retained locally under ignored target/codexs-editor-installer-proof/publication-verification-20261030. CI run IDs and publication results must be read from GitHub after the pushes rather than inferred from this pre-publication record.

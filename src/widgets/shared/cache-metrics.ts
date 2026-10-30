@@ -1,6 +1,10 @@
 import type { NumberFormat } from '../../types/NumberFormat';
 import type { RenderContext } from '../../types/RenderContext';
 import {
+    hasCodexMarker,
+    sanitizeCodexCommonFields
+} from '../../utils/codex-input';
+import {
     getContextWindowTurnCacheTokens,
     type TurnCacheTokens
 } from '../../utils/context-window';
@@ -11,7 +15,10 @@ import { formatTokens } from '../../utils/renderer';
 // - turn: Claude Code's live status JSON (context_window.current_usage)
 // - session: cumulative transcript totals (tokenMetrics)
 // Returns null when the relevant data source is unavailable.
-export function getCacheTokens(context: RenderContext, sessionScope: boolean): TurnCacheTokens | null {
+type CacheTokens = TurnCacheTokens & { nativeInput?: number };
+
+export function getCacheTokens(context: RenderContext, sessionScope: boolean): CacheTokens | null {
+    const codex = hasCodexMarker(context.data);
     if (sessionScope) {
         const metrics = context.tokenMetrics;
         if (!metrics) {
@@ -21,16 +28,18 @@ export function getCacheTokens(context: RenderContext, sessionScope: boolean): T
         return {
             read: metrics.cacheReadTokens ?? 0,
             creation: metrics.cacheCreationTokens ?? 0,
-            input: metrics.inputTokens
+            input: metrics.inputTokens,
+            ...(codex ? { nativeInput: metrics.inputTokens + (metrics.cacheReadTokens ?? 0) } : {})
         };
     }
 
-    return getContextWindowTurnCacheTokens(context.data);
+    const tokens = getContextWindowTurnCacheTokens(context.data && codex ? sanitizeCodexCommonFields(context.data) : context.data);
+    return tokens && codex ? { ...tokens, nativeInput: tokens.input + tokens.read } : tokens;
 }
 
 // Hit rate: share of cacheable context served hot vs rewritten cold.
-export function getCacheHitRate(tokens: TurnCacheTokens): number | null {
-    const denominator = tokens.read + tokens.creation;
+export function getCacheHitRate(tokens: CacheTokens): number | null {
+    const denominator = tokens.nativeInput ?? tokens.read + tokens.creation;
     return denominator > 0 ? (tokens.read / denominator) * 100 : null;
 }
 

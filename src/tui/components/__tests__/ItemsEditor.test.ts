@@ -11,7 +11,10 @@ import {
 
 import { DEFAULT_SETTINGS } from '../../../types/Settings';
 import type { WidgetItem } from '../../../types/Widget';
-import { waitFor } from '../../__tests__/helpers/wait-for-ink';
+import {
+    letReactCatchUp,
+    waitFor
+} from '../../__tests__/helpers/wait-for-ink';
 import { ItemsEditor } from '../ItemsEditor';
 
 class MockTtyStream extends PassThrough {
@@ -78,6 +81,38 @@ function StatefulItemsEditor({ initialWidgets }: { initialWidgets: WidgetItem[] 
 }
 
 describe('ItemsEditor', () => {
+    it('explains an unavailable Codex widget and refuses to add it', async () => {
+        const stdin = createMockStdin();
+        const stdout = createMockStdout();
+        const stderr = createMockStdout();
+        const onUpdate = vi.fn();
+        const instance = render(React.createElement(ItemsEditor, {
+            widgets: [{ id: 'model', type: 'model' }], onUpdate, onBack: vi.fn(),
+            lineNumber: 1, settings: DEFAULT_SETTINGS, codex: true
+        }), { stdin, stdout, stderr, debug: true, exitOnCtrlC: false, patchConsole: false });
+        try {
+            await waitFor(() => { expect(stripAnsi(stdout.getOutput())).toContain('1. Model'); });
+            stdin.write('\x1b[C');
+            await waitFor(() => { expect(stripAnsi(stdout.getOutput())).toContain('Search: (none)'); });
+            let query = '';
+            for (const char of 'claude-account-email') {
+                stdout.clearOutput();
+                stdin.write(char);
+                query += char;
+                await waitFor(() => { expect(stripAnsi(stdout.getOutput())).toContain(`Search: ${query}`); });
+            }
+            expect(stripAnsi(stdout.getOutput())).toContain('Unavailable');
+            stdin.write('\r');
+            await letReactCatchUp();
+            expect(stripAnsi(stdout.getOutput())).toContain('Unavailable');
+            expect(onUpdate).not.toHaveBeenCalled();
+        } finally {
+            instance.unmount(); instance.cleanup();
+            stdin.destroy();
+            stdout.destroy();
+            stderr.destroy();
+        }
+    });
     it('shows only non-default number styles beside the widget name', async () => {
         const stdin = createMockStdin();
         const stdout = createMockStdout();

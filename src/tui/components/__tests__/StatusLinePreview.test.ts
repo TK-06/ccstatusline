@@ -60,6 +60,25 @@ function createMockStdout(): CapturedWriteStream {
 }
 
 describe('StatusLinePreview helpers', () => {
+    it('uses Codex samples and omits unavailable widgets without changing settings', async () => {
+        const stdin = createMockStdin();
+        const stdout = createMockStdout();
+        const stderr = createMockStdout();
+        const lines = [[{ id: 'model', type: 'model' }, { id: 'account', type: 'claude-account-email' }]];
+        const original = structuredClone(lines);
+        const instance = render(React.createElement(StatusLinePreview, { lines, settings: DEFAULT_SETTINGS, terminalWidth: 160, codex: true }), { stdin, stdout, stderr, debug: true, exitOnCtrlC: false, patchConsole: false });
+        try {
+            await waitFor(() => { expect(stdout.getOutput()).toContain('Codex preview'); });
+            expect(stdout.getOutput()).not.toContain('Claude');
+            expect(stdout.getOutput()).not.toContain('@');
+            expect(lines).toEqual(original);
+        } finally {
+            instance.unmount(); instance.cleanup();
+            stdin.destroy();
+            stdout.destroy();
+            stderr.destroy();
+        }
+    });
     it('strips OSC links and clamps preview lines to the terminal width', () => {
         const line = `${renderOsc8Link(
             'https://github.com/owner/repo/pull/42',

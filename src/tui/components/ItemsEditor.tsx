@@ -37,6 +37,10 @@ import {
     getLabelKeybind,
     getLabelModifierText
 } from '../../widgets/shared/raw-or-labeled';
+import {
+    getCodexWidgetCatalog,
+    getCodexWidgetSupport
+} from '../codex-profile';
 
 import { ConfirmDialog } from './ConfirmDialog';
 import { HideStatesEditor } from './HideStatesEditor';
@@ -52,6 +56,7 @@ import {
 } from './items-editor/input-handlers';
 
 export interface ItemsEditorProps {
+    codex?: boolean;
     widgets: WidgetItem[];
     onUpdate: (widgets: WidgetItem[]) => void;
     onBack: () => void;
@@ -67,7 +72,7 @@ function isMergedIntoPreviousWidget(widgets: WidgetItem[], index: number): boole
     return Boolean(widgets[index - 1]?.merge);
 }
 
-export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onBack, lineNumber, settings }) => {
+export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onBack, lineNumber, settings, codex = false }) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [moveMode, setMoveMode] = useState(false);
     const [customEditorWidget, setCustomEditorWidget] = useState<CustomEditorWidgetState | null>(null);
@@ -75,7 +80,7 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const separatorChars = ['|', '-', ',', ' '];
 
-    const widgetCatalog = getWidgetCatalog(settings);
+    const widgetCatalog = codex ? getCodexWidgetCatalog(settings) : getWidgetCatalog(settings);
     const widgetCategories = ['All', ...getWidgetCatalogCategories(widgetCatalog)];
 
     // Get a unique background color for powerline mode
@@ -167,6 +172,9 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     };
 
     const applyWidgetPickerSelection = (selectedType: WidgetItemType) => {
+        if (codex && getCodexWidgetSupport(selectedType).state !== 'available') {
+            return;
+        }
         if (!widgetPicker) {
             return;
         }

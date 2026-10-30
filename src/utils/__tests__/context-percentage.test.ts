@@ -10,6 +10,11 @@ import {
     calculateContextPercentageMetrics
 } from '../context-percentage';
 
+it('does not infer Claude capacity from Codex thread tokens', () => {
+    expect(calculateContextPercentageMetrics({ data: { codex: { schema: 1 } }, tokenMetrics: { inputTokens: 50, outputTokens: 10, cachedTokens: 0, totalTokens: 60, contextLength: 60 } })).toBeNull();
+    expect(calculateContextPercentageMetrics({ data: { codex: null, context_window: { used_percentage: 42 } } })).toEqual({ usedPercentage: 42, windowSize: null });
+});
+
 describe('calculateContextPercentage', () => {
     describe('Status JSON context_window', () => {
         it('should prefer context_window used_percentage over token metrics', () => {
