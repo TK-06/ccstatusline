@@ -679,6 +679,18 @@ describe('backup and error handling behavior', () => {
 });
 
 describe('loadClaudeSettingsSync', () => {
+    it('reads updated settings after the Thinking Effort widget uses the same loader', async () => {
+        const { ThinkingEffortWidget } = await import('../../widgets/ThinkingEffort');
+        const widget = new ThinkingEffortWidget();
+        writeRawClaudeSettings(JSON.stringify({ effortLevel: 'low' }));
+
+        expect(widget.render({ id: 'effort', type: 'thinking-effort' }, {}, DEFAULT_SETTINGS)).toBe('Thinking: low');
+
+        const updated = { effortLevel: 'high', statusLine: { type: 'command', command: 'synthetic-command' } };
+        writeRawClaudeSettings(JSON.stringify(updated));
+        expect(loadClaudeSettingsSync()).toEqual(updated);
+    });
+
     it('should return an empty object when the settings file is missing', () => {
         expect(loadClaudeSettingsSync()).toEqual({});
     });

@@ -127,6 +127,7 @@ The ccstatusline checkout is C:\Users\Palan\Documents\computer_programming\Proje
 |---|---|
 | src/utils/codex-input.ts; src/utils/__tests__/codex-input.test.ts | Marker and schema-v1 extras, safe metrics and tests. |
 | src/utils/usage-prefetch.ts; src/utils/__tests__/usage-prefetch.test.ts | Anthropic API guard and tests. |
+| src/widgets/__tests__/ThinkingEffort.test.ts; src/utils/__tests__/claude-settings.test.ts | User-approved CI isolation follow-up: reproduce leaked settings-loader mocks, restore per-test isolation and retain real-loader regression coverage. No production settings behavior changes. |
 | src/ccstatusline.ts; src/__tests__/codex-render.test.ts | Filter unsupported widgets before side effects, Codex precedence, and formatter-level tests. If the existing test layout uses another precise integration-test path, record it in the ledger before writing. |
 | docs/superpowers/handoff/2026-10-11-codexs-handoff.md; docs/superpowers/specs/2026-10-11-codex-statusline-command-design.md; docs/superpowers/plans/2026-10-11-codex-statusline-command.md | Documentation and progress checkboxes, only for this task. |
 | bun.lock; dist/ | Project-local frozen dependency resolution must leave bun.lock unchanged. dist is a generated local patched build for integration, not a source edit to commit. |
@@ -1452,3 +1453,34 @@ Ran 3201 tests across 178 files. [65.74s]
 ```
 
 These are the same recorded Windows fixture permission and large-transcript timeout cases. Publishing starts hosted candidate verification; it does not establish release readiness or resolve these failures. Fresh logs and the verified candidate inventory are retained locally under ignored target/codexs-editor-installer-proof/publication-verification-20261030. CI run IDs and publication results must be read from GitHub after the pushes rather than inferred from this pre-publication record.
+
+### Settings-loader CI isolation follow-up -- 2026-10-30
+
+Approved scope: src/widgets/__tests__/ThinkingEffort.test.ts, src/utils/__tests__/claude-settings.test.ts and this existing plan/File Map. No production source, workflow, native fixture, snapshot, dependency, real configuration or installation changes. The user requested verification and starting CI if ready; remaining failures and the separate native scope decision must be disclosed before publication.
+
+- [x] Read actual hosted outcomes. Formatter40997156613:3196passed/3failed, all loadClaudeSettingsSync cases; the same three cases failed at the preceding formatter revision. Native feature40997164749 succeeded. Native cleanup40997191799: config and build succeeded, full5788passed/1failed/8ignored, native_exit101, guard_stop=none.
+- [x] Reproduce settings failures and add regression before fixing. Canonical Bun settings file alone:110passed/1skipped/0failed. Running ThinkingEffort.test.ts before claude-settings.test.ts in one Bun command:151passed/1skipped/3failed. The new real-widget/read-update regression increases that to4failed with the same151passed/1skipped, proving the unwanted shared mock remains active.
+- [x] Replace the widget suite's module-wide vi.mock with synthetic settings files under its owned temporary CLAUDE_CONFIG_DIR, restoring the prior environment after every test. Use the real settings path resolver before importing the widget, preserving the existing module initialization path. The error fixture now supplies invalid JSON to exercise the real loader failure. All existing expected widget values remain unchanged. No production dependency-cycle refactor is included.
+- [x] Verify the fix: canonical Bun two-file suite155passed/1skipped/0failed in both argument orders; targeted Vitest ThinkingEffortWidget/loadClaudeSettingsSync49passed/107excluded/0failed. Existing Codex combined168/168 and persistence10/10 pass. Lint/typecheck and formatter build exit0. Built Node3 version diagnostics and5 extras/privacy cases pass. Settings and all60 pending snapshot hashes remain unchanged.
+- [x] Run full canonical Bun and disclose its outcome; full-suite acceptance stays open. Result3178passed/19skipped/5failed,3202tests/178files,62.21seconds,exit1. The new regression passed; the same Windows file-symlink fixture, three /tmp lock fixtures and SessionName large-transcript timeout remain. No permission bypass, snapshot update or timeout relaxation was applied.
+- [x] Publication readiness decision: after disclosure of the remaining local/native failures, the user explicitly approved committing/pushing only this three-file formatter correction to start its CI while native investigation continues. Fresh publication checks again passed155/0 in both Bun argument orders and lint/typecheck. No native file has changed here; a concrete native correction still needs its own scope review.
+- [ ] Verify the actual hosted formatter result at the correction commit; native full-suite acceptance remains open separately.
+
+```text
+(fail) config utilities > saves through a symlinked settings file without replacing the link [2.59ms]
+(fail) terminal width cache > write locking > skips the write when a fresh lock is already held (concurrent writer) [0.36ms]
+(fail) terminal width cache > write locking > does not clobber another writer: only its own entry is ever written under contention [0.96ms]
+(fail) terminal width cache > write locking > steals a stale lock (older than the staleness threshold) and proceeds [0.39ms]
+(fail) SessionNameWidget > reads the latest title from a transcript larger than Node maximum string length [12462.21ms]
+  ^ this test timed out after 5000ms.
+3178 pass
+19 skip
+5 fail
+Ran 3202 tests across 178 files. [62.21s]
+```
+
+An additional full two-file Vitest invocation had144passed/1skipped/11failed: the failures are unchanged child_process.execSync namespace-spy tests reporting nonconfigurable ESM exports. Those tests pass under the canonical Bun runner; the Vitest invocation is not reported green and no unrelated spy changes are included. A preload experiment could not register describe during preload and was discarded as an invalid reproduction method. Removing the shared mock also exposed an individual-widget-first import cycle in the initial fixture attempt; retaining the actual getClaudeSettingsPath import before ThinkingEffortWidget resolved that test entry issue without production changes. The final ordered and targeted results above use the corrected fixture.
+
+The downloaded native full log identifies app::tests::background_exit_tests::exit_interrupts_before_requesting_shutdown at background_exit_tests.rs:522. Its10-second readiness diagnostic reports events=7,turn_started=true,command_started=true,output_bytes=0,script_started=Some(false). This establishes that the script-entry marker and required stdout marker were absent at the deadline; it does not establish buffering, a slow profile, or the cause of process startup delay. The earlier explicit stdout flush cannot fix a script that has not entered. No native timeout, assertion, fixture or production behavior has been changed on that assumption. Native source atfd4f66f is unchanged from the previously accepted implementation.
+
+Evidence is retained locally under ignored target/codexs-editor-installer-proof/settings-mock-isolation-20261030: original single/pair runs, regression RED/GREEN, reversed pair, targeted and full Vitest logs, full Bun/lint/build/focused/persistence logs, compiled synthetic proof and the native full validation artifact. No downloaded log, fixture capture, real settings, artifact binary or pending snapshot belongs in a commit.
